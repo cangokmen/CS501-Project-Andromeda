@@ -1,56 +1,65 @@
 package com.example.andromeda.ui.screens
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.andromeda.data.WellnessData
+import com.example.andromeda.data.WellnessDataRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
-/**
- * A data class to hold all the state for the AddScreen.
- */
+// UI state for the AddScreen, reflecting the new fields
 data class AddScreenState(
     val weight: String = "",
     val dietRating: Float = 5f,
     val activityRating: Float = 5f,
-    val moodRating: Float = 5f
+    val sleepHours: Float = 5f // Changed from moodRating
 )
 
-/**
- * The ViewModel for the AddScreen.
- */
-class AddViewModel : ViewModel() {
+class AddViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Expose the state as a read-only StateFlow
+    private val repository = WellnessDataRepository(application)
+
     private val _uiState = MutableStateFlow(AddScreenState())
-    val uiState = _uiState.asStateFlow()
+    val uiState: StateFlow<AddScreenState> = _uiState.asStateFlow()
 
-    // --- Event Handlers ---
-
-    fun onWeightChange(newWeight: String) {
-        // Only allow digits and a single decimal point
-        if (newWeight.matches(Regex("^\\d*\\.?\\d*\$"))) {
-            _uiState.update { it.copy(weight = newWeight) }
-        }
+    // --- Event Handlers to update the UI state ---
+    fun onWeightChange(weight: String) {
+        _uiState.update { it.copy(weight = weight) }
     }
 
-    fun onDietRatingChange(newRating: Float) {
-        _uiState.update { it.copy(dietRating = newRating) }
+    fun onDietRatingChange(rating: Float) {
+        _uiState.update { it.copy(dietRating = rating) }
     }
 
-    fun onActivityRatingChange(newRating: Float) {
-        _uiState.update { it.copy(activityRating = newRating) }
+    fun onActivityRatingChange(rating: Float) {
+        _uiState.update { it.copy(activityRating = rating) }
     }
 
-    fun onMoodRatingChange(newRating: Float) {
-        _uiState.update { it.copy(moodRating = newRating) }
+    // New handler for sleep hours, replacing mood
+    fun onSleepHoursChange(hours: Float) {
+        _uiState.update { it.copy(sleepHours = hours) }
     }
 
+    // --- Function to save the entry ---
     fun saveEntry() {
-        // TODO: This is where you will later call the repository to save the data.
-        // For now, it just prints the current state.
-        println("Saving State: ${_uiState.value}")
+        viewModelScope.launch {
+            val currentState = _uiState.value
 
-        // Reset the state to default values after saving
-        _uiState.value = AddScreenState()
+            // Create WellnessData object, converting Float ratings from UI to Int for the data model
+            val wellnessData = WellnessData(
+                weight = currentState.weight.toDoubleOrNull() ?: 0.0,
+                dietRating = currentState.dietRating.roundToInt(),
+                activityLevel = currentState.activityRating.roundToInt(),
+                sleepHours = currentState.sleepHours.roundToInt()
+            )
+
+            // Call the repository to save the data
+            repository.addWellnessData(wellnessData)
+        }
     }
 }

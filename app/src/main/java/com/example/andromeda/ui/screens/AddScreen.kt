@@ -71,10 +71,11 @@ fun AddScreen(
                 value = uiState.activityRating,
                 onValueChange = viewModel::onActivityRatingChange
             )
+            // Updated slider for Sleep Hours, replacing Mood
             WellnessRatingSlider(
-                label = "Q3: How was your mood?",
-                value = uiState.moodRating,
-                onValueChange = viewModel::onMoodRatingChange
+                label = "Q3: How many hours did you sleep?",
+                value = uiState.sleepHours,
+                onValueChange = viewModel::onSleepHoursChange
             )
 
             Spacer(modifier = Modifier.height(24.dp))

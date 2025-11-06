@@ -80,11 +80,13 @@ fun MainApp() {
                 }
             }
         },
+        /*
         floatingActionButton = {
             FloatingActionButton(onClick = { navController.navigate(Screen.Chatbot.route) }) {
                 Icon(Icons.Default.Face, contentDescription = "Chatbot")
             }
         }
+        */
     ) { innerPadding ->
         AppNavHost(
             navController = navController,
