@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -19,6 +20,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,11 +38,16 @@ import kotlin.math.roundToInt
 
 @Composable
 fun AddScreen(
-    // 1. Get an instance of the ViewModel
     viewModel: AddViewModel = viewModel()
 ) {
-    // 2. Collect the UI state from the ViewModel
     val uiState by viewModel.uiState.collectAsState()
+
+    // Show the dialog when the state becomes true
+    if (uiState.showSaveConfirmation) {
+        SaveConfirmationDialog(
+            onConfirm = viewModel::dismissSaveConfirmation
+        )
+    }
 
     Scaffold { paddingValues ->
         Column(
@@ -53,10 +60,9 @@ fun AddScreen(
             Text("ADD", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 3. Pass state down and events up for each component
             WeightInput(
                 weight = uiState.weight,
-                onWeightChange = viewModel::onWeightChange // Pass the event handler
+                onWeightChange = viewModel::onWeightChange
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -71,7 +77,6 @@ fun AddScreen(
                 value = uiState.activityRating,
                 onValueChange = viewModel::onActivityRatingChange
             )
-            // Updated slider for Sleep Hours, replacing Mood
             WellnessRatingSlider(
                 label = "Q3: How many hours did you sleep?",
                 value = uiState.sleepHours,
@@ -81,7 +86,7 @@ fun AddScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             FloatingActionButton(
-                onClick = viewModel::saveEntry, // Call the save function on the ViewModel
+                onClick = viewModel::saveEntry,
                 containerColor = Color(0xFF4CAF50),
                 contentColor = Color.White
             ) {
@@ -89,6 +94,20 @@ fun AddScreen(
             }
         }
     }
+}
+
+@Composable
+fun SaveConfirmationDialog(onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onConfirm,
+        title = { Text("Saved!") },
+        text = { Text("Your input has been saved.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("OK")
+            }
+        }
+    )
 }
 
 
@@ -149,7 +168,6 @@ private fun WellnessRatingSlider(
 @Composable
 fun AddScreenPreview() {
     AndromedaTheme {
-        // Preview still works without needing a full ViewModel instance
         AddScreen()
     }
 }
