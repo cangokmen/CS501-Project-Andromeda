@@ -41,6 +41,7 @@ fun AddScreen(
     viewModel: AddViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isWeightEntered = uiState.weight.isNotBlank()
 
     // Show the dialog when the state becomes true
     if (uiState.showSaveConfirmation) {
@@ -86,8 +87,8 @@ fun AddScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             FloatingActionButton(
-                onClick = viewModel::saveEntry,
-                containerColor = Color(0xFF4CAF50),
+                onClick = { if (isWeightEntered) viewModel.saveEntry() },
+                containerColor = if (isWeightEntered) Color(0xFF4CAF50) else Color(0xFFA5D6A7),
                 contentColor = Color.White
             ) {
                 Icon(Icons.Default.Check, contentDescription = "Save Entry")
