@@ -8,6 +8,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,7 +60,10 @@ enum class ScreenState {
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(
+    isDarkTheme: Boolean = isSystemInDarkTheme(), // Add isDarkTheme parameter
+    onSetTheme: (Boolean) -> Unit = {}
+) {
     var screenState by remember { mutableStateOf(ScreenState.Main) }
 
     AnimatedContent(
@@ -111,14 +115,21 @@ fun SettingsScreen() {
                 }
             }
             ScreenState.Account -> AccountSettings(onBackClicked = { screenState = ScreenState.Main })
-            ScreenState.Preferences -> PreferencesSettings(onBackClicked = { screenState = ScreenState.Main })
+            ScreenState.Preferences -> PreferencesSettings(
+                onBackClicked = { screenState = ScreenState.Main },
+                isDarkTheme = isDarkTheme, // Pass it down
+                onSetTheme = onSetTheme
+            )
         }
     }
 }
 
 @Composable
-fun PreferencesSettings(onBackClicked: () -> Unit) {
-    var selectedTheme by remember { mutableStateOf("Light") } // In a real app, this state would be hoisted
+fun PreferencesSettings(
+    onBackClicked: () -> Unit,
+    isDarkTheme: Boolean, // Receive the actual theme state
+    onSetTheme: (Boolean) -> Unit
+) {
     val themes = listOf("Light", "Dark")
 
     Column(
@@ -148,16 +159,22 @@ fun PreferencesSettings(onBackClicked: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
 
             themes.forEach { theme ->
+                // The selected state is now derived from the isDarkTheme parameter
+                val selected = (theme == "Dark" && isDarkTheme) || (theme == "Light" && !isDarkTheme)
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clickable { selectedTheme = theme }
+                        .clickable {
+                            onSetTheme(theme == "Dark")
+                        }
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(
-                        selected = (theme == selectedTheme),
-                        onClick = { selectedTheme = theme }
+                        selected = selected,
+                        onClick = {
+                            onSetTheme(theme == "Dark")
+                        }
                     )
                     Text(text = theme, modifier = Modifier.padding(start = 8.dp))
                 }

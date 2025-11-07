@@ -20,7 +20,9 @@ sealed class Screen(val route: String) {
 @Composable
 fun AppNavHost(
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDarkTheme: Boolean, // Add the missing parameter here
+    onSetTheme: (Boolean) -> Unit // Also correcting this to non-nullable to match
 ) {
     NavHost(
         navController = navController,
@@ -29,7 +31,12 @@ fun AppNavHost(
     ) {
         composable(Screen.History.route) { HistoryScreen() }
         composable(Screen.Add.route) { AddScreen() }
-        composable(Screen.Settings.route) { SettingsScreen() }
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                isDarkTheme = isDarkTheme, // Now this will resolve correctly
+                onSetTheme = onSetTheme
+            )
+        }
         composable(Screen.Chatbot.route) { ChatbotScreen() }
     }
 }
