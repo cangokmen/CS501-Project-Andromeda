@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -28,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,16 +53,20 @@ data class SettingItem(
     val onClick: () -> Unit
 )
 
+enum class ScreenState {
+    Main, Account, Preferences
+}
+
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun SettingsScreen() {
-    var showAccountSettings by remember { mutableStateOf(false) }
+    var screenState by remember { mutableStateOf(ScreenState.Main) }
 
     AnimatedContent(
-        targetState = showAccountSettings,
+        targetState = screenState,
         label = "Settings Animation",
         transitionSpec = {
-            if (targetState) {
+            if (targetState > initialState) {
                 // Enter from right, exit to left
                 slideInHorizontally { fullWidth -> fullWidth } + fadeIn() togetherWith
                         slideOutHorizontally { fullWidth -> -fullWidth } + fadeOut()
@@ -70,37 +77,89 @@ fun SettingsScreen() {
             }
         }
     ) { targetState ->
-        if (targetState) {
-            AccountSettings(onBackClicked = { showAccountSettings = false })
-        } else {
-            val settingsItems = listOf(
-                SettingItem("Account", Icons.Default.AccountCircle) { showAccountSettings = true },
-                SettingItem("Question Management", Icons.Default.Build) { /* Handle click */ },
-                SettingItem("Preferences", Icons.Default.Face) { /* Handle click */ },
-                SettingItem("Accessibility", Icons.Default.Info) { /* Handle click */ }
-            )
+        when (targetState) {
+            ScreenState.Main -> {
+                val settingsItems = listOf(
+                    SettingItem("Account", Icons.Default.AccountCircle) { screenState = ScreenState.Account },
+                    SettingItem("Question Management", Icons.Default.Build) { /* Handle click */ },
+                    SettingItem("Preferences", Icons.Default.Face) { screenState = ScreenState.Preferences },
+                    SettingItem("Accessibility", Icons.Default.Info) { /* Handle click */ }
+                )
 
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    items(settingsItems.size) { index ->
-                        val item = settingsItems[index]
-                        ListItem(
-                            headlineContent = { Text(item.title) },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.title
-                                )
-                            },
-                            modifier = Modifier.clickable { item.onClick() }
-                        )
-                        if (index < settingsItems.size - 1) {
-                            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                        items(settingsItems.size) { index ->
+                            val item = settingsItems[index]
+                            ListItem(
+                                headlineContent = { Text(item.title) },
+                                leadingContent = {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = item.title
+                                    )
+                                },
+                                modifier = Modifier.clickable { item.onClick() }
+                            )
+                            if (index < settingsItems.size - 1) {
+                                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                            }
                         }
                     }
+                }
+            }
+            ScreenState.Account -> AccountSettings(onBackClicked = { screenState = ScreenState.Main })
+            ScreenState.Preferences -> PreferencesSettings(onBackClicked = { screenState = ScreenState.Main })
+        }
+    }
+}
+
+@Composable
+fun PreferencesSettings(onBackClicked: () -> Unit) {
+    var selectedTheme by remember { mutableStateOf("Light") } // In a real app, this state would be hoisted
+    val themes = listOf("Light", "Dark")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClicked) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Text("Preferences", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.weight(1f)) // Pushes the title to be more centered
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Text("Theme", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            themes.forEach { theme ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { selectedTheme = theme }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = (theme == selectedTheme),
+                        onClick = { selectedTheme = theme }
+                    )
+                    Text(text = theme, modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }
@@ -120,12 +179,12 @@ fun AccountSettings(onBackClicked: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 16.dp) // Added top padding
+            .padding(16.dp)
     ) {
+        // Top bar with back button, title, and edit button
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -138,54 +197,52 @@ fun AccountSettings(onBackClicked: () -> Unit) {
             }
         }
 
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center // Center content vertically and horizontally
-        ) {
-            if (isEditing) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 32.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text("Name") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = lastName,
-                        onValueChange = { lastName = it },
-                        label = { Text("Last Name") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = age,
-                        onValueChange = { age = it },
-                        label = { Text("Age") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = targetWeight,
-                        onValueChange = { targetWeight = it },
-                        label = { Text("Target Weight") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 32.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    InfoRow(label = "Name:", value = name)
-                    InfoRow(label = "Last Name:", value = lastName)
-                    InfoRow(label = "Age:", value = age)
-                    InfoRow(label = "Target Weight:", value = targetWeight)
-                }
+        Spacer(modifier = Modifier.height(32.dp)) // Add space below the top bar
+
+        // Content area
+        if (isEditing) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = lastName,
+                    onValueChange = { lastName = it },
+                    label = { Text("Last Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = age,
+                    onValueChange = { age = it },
+                    label = { Text("Age") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = targetWeight,
+                    onValueChange = { targetWeight = it },
+                    label = { Text("Target Weight") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp) // Increased spacing
+            ) {
+                InfoRow(label = "Name:", value = name)
+                InfoRow(label = "Last Name:", value = lastName)
+                InfoRow(label = "Age:", value = age)
+                InfoRow(label = "Target Weight:", value = targetWeight)
             }
         }
     }
@@ -195,10 +252,11 @@ fun AccountSettings(onBackClicked: () -> Unit) {
 private fun InfoRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, fontWeight = FontWeight.Bold)
-        Text(text = value)
+        Text(text = label, fontWeight = FontWeight.Bold, fontSize = 20.sp) // Increased size
+        Text(text = value, fontSize = 20.sp) // Increased size
     }
 }
 
