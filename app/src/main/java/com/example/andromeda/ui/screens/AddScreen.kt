@@ -168,7 +168,7 @@ private fun WellnessRatingSlider(
 @Preview(showBackground = true)
 @Composable
 fun AddScreenPreview() {
-    AndromedaTheme {
+    AndromedaTheme(darkTheme = false){
         AddScreen()
     }
 }

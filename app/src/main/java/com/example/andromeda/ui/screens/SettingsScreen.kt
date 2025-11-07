@@ -55,14 +55,16 @@ data class SettingItem(
 )
 
 enum class ScreenState {
-    Main, Account, Preferences
+    Main, Account, Preferences, Accessibility
 }
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun SettingsScreen(
-    isDarkTheme: Boolean = isSystemInDarkTheme(), // Add isDarkTheme parameter
-    onSetTheme: (Boolean) -> Unit = {}
+    isDarkTheme: Boolean = isSystemInDarkTheme(),
+    onSetTheme: (Boolean) -> Unit = {},
+    useBiggerText: Boolean = false, // Add this
+    onSetTextSize: (Boolean) -> Unit = {} // Add this
 ) {
     var screenState by remember { mutableStateOf(ScreenState.Main) }
 
@@ -70,12 +72,10 @@ fun SettingsScreen(
         targetState = screenState,
         label = "Settings Animation",
         transitionSpec = {
-            if (targetState > initialState) {
-                // Enter from right, exit to left
+            if (targetState.ordinal > initialState.ordinal) {
                 slideInHorizontally { fullWidth -> fullWidth } + fadeIn() togetherWith
                         slideOutHorizontally { fullWidth -> -fullWidth } + fadeOut()
             } else {
-                // Enter from left, exit to right
                 slideInHorizontally { fullWidth -> -fullWidth } + fadeIn() togetherWith
                         slideOutHorizontally { fullWidth -> fullWidth } + fadeOut()
             }
@@ -87,9 +87,9 @@ fun SettingsScreen(
                     SettingItem("Account", Icons.Default.AccountCircle) { screenState = ScreenState.Account },
                     SettingItem("Question Management", Icons.Default.Build) { /* Handle click */ },
                     SettingItem("Preferences", Icons.Default.Face) { screenState = ScreenState.Preferences },
-                    SettingItem("Accessibility", Icons.Default.Info) { /* Handle click */ }
+                    SettingItem("Accessibility", Icons.Default.Info) { screenState = ScreenState.Accessibility } // Updated
                 )
-
+                // Main settings list UI remains the same
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -117,17 +117,23 @@ fun SettingsScreen(
             ScreenState.Account -> AccountSettings(onBackClicked = { screenState = ScreenState.Main })
             ScreenState.Preferences -> PreferencesSettings(
                 onBackClicked = { screenState = ScreenState.Main },
-                isDarkTheme = isDarkTheme, // Pass it down
+                isDarkTheme = isDarkTheme,
                 onSetTheme = onSetTheme
+            )
+            ScreenState.Accessibility -> AccessibilitySettings( // New case
+                onBackClicked = { screenState = ScreenState.Main },
+                useBiggerText = useBiggerText,
+                onSetTextSize = onSetTextSize
             )
         }
     }
 }
 
+
 @Composable
 fun PreferencesSettings(
     onBackClicked: () -> Unit,
-    isDarkTheme: Boolean, // Receive the actual theme state
+    isDarkTheme: Boolean, // Add the missing parameter here
     onSetTheme: (Boolean) -> Unit
 ) {
     val themes = listOf("Light", "Dark")
@@ -159,7 +165,7 @@ fun PreferencesSettings(
             Spacer(modifier = Modifier.height(16.dp))
 
             themes.forEach { theme ->
-                // The selected state is now derived from the isDarkTheme parameter
+                // FIX: Use the passed-in isDarkTheme state
                 val selected = (theme == "Dark" && isDarkTheme) || (theme == "Light" && !isDarkTheme)
                 Row(
                     Modifier
@@ -277,10 +283,64 @@ private fun InfoRow(label: String, value: String) {
     }
 }
 
+@Composable
+fun AccessibilitySettings(
+    onBackClicked: () -> Unit,
+    useBiggerText: Boolean,
+    onSetTextSize: (Boolean) -> Unit
+) {
+    val textSizes = listOf("Normal", "Bigger")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClicked) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Text("Accessibility", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.weight(1f))
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Text("Text Size", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            textSizes.forEach { size ->
+                val selected = (size == "Bigger" && useBiggerText) || (size == "Normal" && !useBiggerText)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onSetTextSize(size == "Bigger") }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selected,
+                        onClick = { onSetTextSize(size == "Bigger") }
+                    )
+                    Text(text = size, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun SettingsScreenPreview() {
-    AndromedaTheme {
+    AndromedaTheme(darkTheme = false) {
         Surface {
             SettingsScreen()
         }

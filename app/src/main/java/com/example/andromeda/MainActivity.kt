@@ -49,13 +49,20 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// A simple ViewModel to manage theme state
+// Updated ViewModel
 class MainViewModel(private val userPreferencesRepository: UserPreferencesRepository) : ViewModel() {
     val isDarkTheme: StateFlow<Boolean> = userPreferencesRepository.isDarkTheme
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = false // Default to light theme initially
+            initialValue = false
+        )
+
+    val useBiggerText: StateFlow<Boolean> = userPreferencesRepository.useBiggerText
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
         )
 
     fun setTheme(isDark: Boolean) {
@@ -64,7 +71,13 @@ class MainViewModel(private val userPreferencesRepository: UserPreferencesReposi
         }
     }
 
-    // ViewModel Factory
+    fun setTextSize(useBigger: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveTextSizePreference(useBigger)
+        }
+    }
+
+    // ViewModel Factory remains the same
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
@@ -88,6 +101,7 @@ fun MainApp(
     viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory(LocalContext.current.applicationContext as Application))
 ) {
     val useDarkTheme by viewModel.isDarkTheme.collectAsState()
+    val useBiggerText by viewModel.useBiggerText.collectAsState() // Get the text size state
     val navController = rememberNavController()
 
     val navItems = listOf(
@@ -96,7 +110,13 @@ fun MainApp(
         BottomNavItem("Settings", Icons.Default.Settings, Screen.Settings.route)
     )
 
-    AndromedaTheme(darkTheme = useDarkTheme) {
+    // Determine the font multiplier
+    val fontScale = if (useBiggerText) 1.25f else 1.0f
+
+    AndromedaTheme(
+        darkTheme = useDarkTheme,
+        fontScale = fontScale // Pass the scale to the theme
+    ) {
         Scaffold(
             bottomBar = {
                 BottomAppBar {
@@ -125,8 +145,10 @@ fun MainApp(
             AppNavHost(
                 navController = navController,
                 modifier = Modifier.padding(innerPadding),
-                isDarkTheme = useDarkTheme, // Pass the theme state
-                onSetTheme = { isDark -> viewModel.setTheme(isDark) } // Pass the function to change it
+                isDarkTheme = useDarkTheme,
+                onSetTheme = { isDark -> viewModel.setTheme(isDark) },
+                useBiggerText = useBiggerText, // Pass state down
+                onSetTextSize = { useBigger -> viewModel.setTextSize(useBigger) } // Pass function down
             )
         }
     }

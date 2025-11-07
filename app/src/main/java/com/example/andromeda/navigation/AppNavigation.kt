@@ -21,8 +21,10 @@ sealed class Screen(val route: String) {
 fun AppNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
-    isDarkTheme: Boolean, // Add the missing parameter here
-    onSetTheme: (Boolean) -> Unit // Also correcting this to non-nullable to match
+    isDarkTheme: Boolean,
+    onSetTheme: (Boolean) -> Unit,
+    useBiggerText: Boolean, // Add this
+    onSetTextSize: (Boolean) -> Unit // Add this
 ) {
     NavHost(
         navController = navController,
@@ -33,8 +35,10 @@ fun AppNavHost(
         composable(Screen.Add.route) { AddScreen() }
         composable(Screen.Settings.route) {
             SettingsScreen(
-                isDarkTheme = isDarkTheme, // Now this will resolve correctly
-                onSetTheme = onSetTheme
+                isDarkTheme = isDarkTheme,
+                onSetTheme = onSetTheme,
+                useBiggerText = useBiggerText, // Pass down
+                onSetTextSize = onSetTextSize  // Pass down
             )
         }
         composable(Screen.Chatbot.route) { ChatbotScreen() }
