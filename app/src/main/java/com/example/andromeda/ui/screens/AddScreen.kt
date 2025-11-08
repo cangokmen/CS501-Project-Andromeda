@@ -1,49 +1,40 @@
 package com.example.andromeda.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import android.app.Application
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.andromeda.ui.theme.AndromedaTheme
 import kotlin.math.roundToInt
 
+
 @Composable
 fun AddScreen(
-    viewModel: AddViewModel = viewModel()
+    selectedQuestions: Set<String>,
+    viewModel: AddViewModel = viewModel(
+        key = selectedQuestions.toString(),
+        factory = AddViewModel.Factory(
+            LocalContext.current.applicationContext as Application,
+            selectedQuestions
+        )
+    )
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isWeightEntered = uiState.weight.isNotBlank()
 
-    // Show the dialog when the state becomes true
     if (uiState.showSaveConfirmation) {
         SaveConfirmationDialog(
             onConfirm = viewModel::dismissSaveConfirmation
@@ -56,35 +47,56 @@ fun AddScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            // --- MODIFIED: Increased spacing from 16.dp to 24.dp ---
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Text("ADD", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(32.dp))
 
             WeightInput(
                 weight = uiState.weight,
                 onWeightChange = viewModel::onWeightChange
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            // Define the order of questions to ensure consistency
+            val questionOrder = listOf("DIET", "ACTIVITY", "SLEEP", "WATER", "PROTEIN")
+            // Filter the ordered list by the user's selection
+            val visibleQuestions = questionOrder.filter { it in selectedQuestions }
 
-            WellnessRatingSlider(
-                label = "Q1: How healthy was your diet?",
-                value = uiState.dietRating,
-                onValueChange = viewModel::onDietRatingChange
-            )
-            WellnessRatingSlider(
-                label = "Q2: How active were you?",
-                value = uiState.activityRating,
-                onValueChange = viewModel::onActivityRatingChange
-            )
-            WellnessRatingSlider(
-                label = "Q3: How many hours did you sleep?",
-                value = uiState.sleepHours,
-                onValueChange = viewModel::onSleepHoursChange
-            )
+            // Loop through the visible questions and assign numbers dynamically
+            visibleQuestions.forEachIndexed { index, questionKey ->
+                val questionNumber = index + 1
 
-            Spacer(modifier = Modifier.height(24.dp))
+                when (questionKey) {
+                    "DIET" -> WellnessRatingSlider(
+                        label = "Q$questionNumber: How would you rate your diet?",
+                        value = uiState.dietRating,
+                        onValueChange = viewModel::onDietRatingChange
+                    )
+                    "ACTIVITY" -> WellnessRatingSlider(
+                        label = "Q$questionNumber: How would you rate your activity level?",
+                        value = uiState.activityRating,
+                        onValueChange = viewModel::onActivityRatingChange
+                    )
+                    "SLEEP" -> WellnessRatingSlider(
+                        label = "Q$questionNumber: How would you rate your sleep?",
+                        value = uiState.sleepHours,
+                        onValueChange = viewModel::onSleepHoursChange
+                    )
+                    "WATER" -> WellnessRatingSlider(
+                        label = "Q$questionNumber: How would you rate your water intake?",
+                        value = uiState.waterIntake,
+                        onValueChange = viewModel::onWaterIntakeChange
+                    )
+                    "PROTEIN" -> WellnessRatingSlider(
+                        label = "Q$questionNumber: How would you rate your protein intake?",
+                        value = uiState.proteinIntake,
+                        onValueChange = viewModel::onProteinIntakeChange
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
 
             FloatingActionButton(
                 onClick = { if (isWeightEntered) viewModel.saveEntry() },
@@ -101,65 +113,49 @@ fun AddScreen(
 fun SaveConfirmationDialog(onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onConfirm,
-        title = { Text("Saved!") },
-        text = { Text("Your input has been saved.") },
+        title = { Text("Success!") },
+        text = { Text("Your entry has been saved.") },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            Button(onClick = onConfirm) {
                 Text("OK")
             }
         }
     )
 }
 
-
 @Composable
-private fun WeightInput(weight: String, onWeightChange: (String) -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        Text("How much did you weigh?", style = MaterialTheme.typography.bodyLarge)
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            OutlinedTextField(
-                value = weight,
-                onValueChange = onWeightChange,
-                modifier = Modifier.width(100.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                textStyle = TextStyle(textAlign = TextAlign.Center)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("lbs", style = MaterialTheme.typography.bodyLarge)
-        }
-    }
+fun WeightInput(weight: String, onWeightChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = weight,
+        onValueChange = onWeightChange,
+        label = { Text("Weight (lbs)") },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable
 private fun WellnessRatingSlider(
     label: String,
     value: Float,
-    onValueChange: (Float) -> Unit
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..10f,
+    steps: Int = 9
 ) {
-    Column(modifier = Modifier
-        .fillMaxWidth()
-        .padding(vertical = 8.dp)) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("0")
-            Slider(
-                value = value,
-                onValueChange = onValueChange,
-                valueRange = 0f..10f,
-                steps = 9,
-                modifier = Modifier.weight(1f)
-            )
-            Text("10")
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(value.roundToInt().toString(), style = MaterialTheme.typography.bodyLarge)
         }
-        Text(
-            text = value.roundToInt().toString(),
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            style = MaterialTheme.typography.labelMedium
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            steps = steps
         )
     }
 }
@@ -168,7 +164,8 @@ private fun WellnessRatingSlider(
 @Preview(showBackground = true)
 @Composable
 fun AddScreenPreview() {
-    AndromedaTheme {
-        AddScreen()
+    AndromedaTheme(darkTheme = false){
+        // Example: If only these 3 are selected, they will be numbered Q1, Q2, Q3
+        AddScreen(selectedQuestions = setOf("DIET", "SLEEP", "WATER"))
     }
 }

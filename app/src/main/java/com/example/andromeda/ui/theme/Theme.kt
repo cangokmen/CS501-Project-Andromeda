@@ -1,58 +1,40 @@
+// In app/src/main/java/com/example/andromeda/ui/theme/Theme.kt
+// (Assuming you have a standard Theme.kt, otherwise apply this to your main composable)
+
 package com.example.andromeda.ui.theme
-
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
+
+import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-)
+// Your color schemes...
 
 @Composable
 fun AndromedaTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    darkTheme: Boolean,
+    fontScale: Float = 1.0f, // New parameter
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+    val colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    // Create a scaled typography
+    val originalTypography = Typography()
+    val scaledTypography = Typography(
+        bodyLarge = originalTypography.bodyLarge.copy(fontSize = originalTypography.bodyLarge.fontSize * fontScale),
+        bodyMedium = originalTypography.bodyMedium.copy(fontSize = originalTypography.bodyMedium.fontSize * fontScale),
+        bodySmall = originalTypography.bodySmall.copy(fontSize = originalTypography.bodySmall.fontSize * fontScale),
+        // Repeat for all other text styles you use: titleLarge, labelSmall, etc.
+        headlineLarge = originalTypography.headlineLarge.copy(fontSize = originalTypography.headlineLarge.fontSize * fontScale), // FIX: Changed original_typography to originalTypography
+        // ... and so on
+    )
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = scaledTypography, // Use the scaled typography
         content = content
     )
 }

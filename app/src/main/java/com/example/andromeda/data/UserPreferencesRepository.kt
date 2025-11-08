@@ -1,0 +1,54 @@
+package com.example.andromeda.data
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import android.util.Log
+
+private val Context.userPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
+
+class UserPreferencesRepository(private val context: Context) {
+
+    private object PreferencesKeys {
+        val IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
+        val USE_BIGGER_TEXT = booleanPreferencesKey("use_bigger_text")
+        val SELECTED_QUESTIONS = stringSetPreferencesKey("selected_questions") // New
+    }
+
+    val isDarkTheme: Flow<Boolean> = context.userPreferencesDataStore.data
+        .map { preferences -> preferences[PreferencesKeys.IS_DARK_THEME] ?: false }
+
+    val useBiggerText: Flow<Boolean> = context.userPreferencesDataStore.data
+        .map { preferences -> preferences[PreferencesKeys.USE_BIGGER_TEXT] ?: false }
+
+    // Flow for selected questions, with defaults
+    val selectedQuestions: Flow<Set<String>> = context.userPreferencesDataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.SELECTED_QUESTIONS] ?: setOf("DIET", "ACTIVITY", "SLEEP")
+        }
+
+    suspend fun saveThemePreference(isDarkTheme: Boolean) {
+        context.userPreferencesDataStore.edit { preferences ->
+            preferences[PreferencesKeys.IS_DARK_THEME] = isDarkTheme
+        }
+    }
+
+    suspend fun saveTextSizePreference(useBigger: Boolean) {
+        context.userPreferencesDataStore.edit { preferences ->
+            preferences[PreferencesKeys.USE_BIGGER_TEXT] = useBigger
+        }
+    }
+
+    // Function to save selected questions
+    suspend fun saveSelectedQuestions(questions: Set<String>) {
+        context.userPreferencesDataStore.edit { preferences ->
+            preferences[PreferencesKeys.SELECTED_QUESTIONS] = questions
+        }
+    }
+}
