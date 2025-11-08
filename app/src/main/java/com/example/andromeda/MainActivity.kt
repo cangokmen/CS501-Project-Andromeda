@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
@@ -50,7 +49,8 @@ class MainActivity : ComponentActivity() {
 }
 
 // Updated ViewModel
-class MainViewModel(private val userPreferencesRepository: UserPreferencesRepository) : ViewModel() {
+class MainViewModel(private val userPreferencesRepository: UserPreferencesRepository) :
+    ViewModel() {
     val isDarkTheme: StateFlow<Boolean> = userPreferencesRepository.isDarkTheme
         .stateIn(
             scope = viewModelScope,
@@ -65,6 +65,14 @@ class MainViewModel(private val userPreferencesRepository: UserPreferencesReposi
             initialValue = false
         )
 
+    // New state for selected questions
+    val selectedQuestions: StateFlow<Set<String>> = userPreferencesRepository.selectedQuestions
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = setOf("DIET", "ACTIVITY", "SLEEP") // Default initial value
+        )
+
     fun setTheme(isDark: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.saveThemePreference(isDark)
@@ -74,6 +82,13 @@ class MainViewModel(private val userPreferencesRepository: UserPreferencesReposi
     fun setTextSize(useBigger: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.saveTextSizePreference(useBigger)
+        }
+    }
+
+    // New function to update questions
+    fun setQuestions(questions: Set<String>) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveSelectedQuestions(questions)
         }
     }
 
@@ -101,7 +116,8 @@ fun MainApp(
     viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory(LocalContext.current.applicationContext as Application))
 ) {
     val useDarkTheme by viewModel.isDarkTheme.collectAsState()
-    val useBiggerText by viewModel.useBiggerText.collectAsState() // Get the text size state
+    val useBiggerText by viewModel.useBiggerText.collectAsState()
+    val selectedQuestions by viewModel.selectedQuestions.collectAsState() // Get question state
     val navController = rememberNavController()
 
     val navItems = listOf(
@@ -110,12 +126,11 @@ fun MainApp(
         BottomNavItem("Settings", Icons.Default.Settings, Screen.Settings.route)
     )
 
-    // Determine the font multiplier
     val fontScale = if (useBiggerText) 1.25f else 1.0f
 
     AndromedaTheme(
         darkTheme = useDarkTheme,
-        fontScale = fontScale // Pass the scale to the theme
+        fontScale = fontScale
     ) {
         Scaffold(
             bottomBar = {
@@ -146,9 +161,11 @@ fun MainApp(
                 navController = navController,
                 modifier = Modifier.padding(innerPadding),
                 isDarkTheme = useDarkTheme,
-                onSetTheme = { isDark -> viewModel.setTheme(isDark) },
-                useBiggerText = useBiggerText, // Pass state down
-                onSetTextSize = { useBigger -> viewModel.setTextSize(useBigger) } // Pass function down
+                onSetTheme = viewModel::setTheme,
+                useBiggerText = useBiggerText,
+                onSetTextSize = viewModel::setTextSize,
+                selectedQuestions = selectedQuestions, // Pass state
+                onSetQuestions = viewModel::setQuestions // Pass function
             )
         }
     }

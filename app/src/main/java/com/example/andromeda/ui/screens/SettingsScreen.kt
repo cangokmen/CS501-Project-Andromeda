@@ -26,10 +26,12 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -54,8 +56,9 @@ data class SettingItem(
     val onClick: () -> Unit
 )
 
+
 enum class ScreenState {
-    Main, Account, Preferences, Accessibility
+    Main, Account, Preferences, Accessibility, QuestionManagement // New
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -63,11 +66,14 @@ enum class ScreenState {
 fun SettingsScreen(
     isDarkTheme: Boolean = isSystemInDarkTheme(),
     onSetTheme: (Boolean) -> Unit = {},
-    useBiggerText: Boolean = false, // Add this
-    onSetTextSize: (Boolean) -> Unit = {} // Add this
+    useBiggerText: Boolean = false,
+    onSetTextSize: (Boolean) -> Unit = {},
+    selectedQuestions: Set<String> = setOf(), // Add this
+    onSetQuestions: (Set<String>) -> Unit = {} // Add this
 ) {
     var screenState by remember { mutableStateOf(ScreenState.Main) }
 
+    // FIX: Added targetState and transitionSpec to AnimatedContent
     AnimatedContent(
         targetState = screenState,
         label = "Settings Animation",
@@ -85,11 +91,10 @@ fun SettingsScreen(
             ScreenState.Main -> {
                 val settingsItems = listOf(
                     SettingItem("Account", Icons.Default.AccountCircle) { screenState = ScreenState.Account },
-                    SettingItem("Question Management", Icons.Default.Build) { /* Handle click */ },
+                    SettingItem("Question Management", Icons.Default.Build) { screenState = ScreenState.QuestionManagement },
                     SettingItem("Preferences", Icons.Default.Face) { screenState = ScreenState.Preferences },
-                    SettingItem("Accessibility", Icons.Default.Info) { screenState = ScreenState.Accessibility } // Updated
+                    SettingItem("Accessibility", Icons.Default.Info) { screenState = ScreenState.Accessibility }
                 )
-                // Main settings list UI remains the same
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -120,10 +125,15 @@ fun SettingsScreen(
                 isDarkTheme = isDarkTheme,
                 onSetTheme = onSetTheme
             )
-            ScreenState.Accessibility -> AccessibilitySettings( // New case
+            ScreenState.Accessibility -> AccessibilitySettings(
                 onBackClicked = { screenState = ScreenState.Main },
                 useBiggerText = useBiggerText,
                 onSetTextSize = onSetTextSize
+            )
+            ScreenState.QuestionManagement -> QuestionManagementScreen(
+                onBackClicked = { screenState = ScreenState.Main },
+                selectedQuestions = selectedQuestions,
+                onSetQuestions = onSetQuestions
             )
         }
     }
@@ -133,7 +143,7 @@ fun SettingsScreen(
 @Composable
 fun PreferencesSettings(
     onBackClicked: () -> Unit,
-    isDarkTheme: Boolean, // Add the missing parameter here
+    isDarkTheme: Boolean,
     onSetTheme: (Boolean) -> Unit
 ) {
     val themes = listOf("Light", "Dark")
@@ -165,7 +175,6 @@ fun PreferencesSettings(
             Spacer(modifier = Modifier.height(16.dp))
 
             themes.forEach { theme ->
-                // FIX: Use the passed-in isDarkTheme state
                 val selected = (theme == "Dark" && isDarkTheme) || (theme == "Light" && !isDarkTheme)
                 Row(
                     Modifier
@@ -331,6 +340,89 @@ fun AccessibilitySettings(
                         onClick = { onSetTextSize(size == "Bigger") }
                     )
                     Text(text = size, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QuestionManagementScreen(
+    onBackClicked: () -> Unit,
+    selectedQuestions: Set<String>,
+    onSetQuestions: (Set<String>) -> Unit
+) {
+    // Map of question keys to their display names
+    val allQuestions = mapOf(
+        "DIET" to "Diet Rating",
+        "ACTIVITY" to "Activity Rating",
+        "SLEEP" to "Sleep Hours",
+        "WATER" to "Water Intake",
+        "PROTEIN" to "Protein Intake"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClicked) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Text("Manage Questions", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.weight(1f))
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Text(
+                "Select up to 3 questions to track:",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            allQuestions.forEach { (key, name) ->
+                val isChecked = key in selectedQuestions
+                val isEnabled = isChecked || selectedQuestions.size < 3
+
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = isEnabled) {
+                            val newSelection = selectedQuestions.toMutableSet()
+                            if (isChecked) {
+                                newSelection.remove(key)
+                            } else {
+                                newSelection.add(key)
+                            }
+                            onSetQuestions(newSelection)
+                        }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = isChecked,
+                        onCheckedChange = {
+                            val newSelection = selectedQuestions.toMutableSet()
+                            if (it) {
+                                newSelection.add(key)
+                            } else {
+                                newSelection.remove(key)
+                            }
+                            onSetQuestions(newSelection)
+                        },
+                        enabled = isEnabled
+                    )
+                    Text(text = name, modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }

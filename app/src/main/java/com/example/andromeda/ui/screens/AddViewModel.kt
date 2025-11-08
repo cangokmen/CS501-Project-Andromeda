@@ -1,37 +1,35 @@
 package com.example.andromeda.ui.screens
 
 import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-// UI state for the AddScreen
-data class AddScreenState(
+data class AddScreenUiState(
     val weight: String = "",
     val dietRating: Float = 5f,
     val activityRating: Float = 5f,
-    val sleepHours: Float = 5f,
-    val showSaveConfirmation: Boolean = false // New state to control dialog visibility
+    val sleepHours: Float = 5f, // Default to 5
+    val waterIntake: Float = 5f, // Default to 5
+    val proteinIntake: Float = 5f, // Default to 5
+    val showSaveConfirmation: Boolean = false
 )
 
-class AddViewModel(application: Application) : AndroidViewModel(application) {
+class AddViewModel(
+    private val repository: WellnessDataRepository,
+    private val selectedQuestions: Set<String>
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(AddScreenUiState())
+    val uiState: StateFlow<AddScreenUiState> = _uiState.asStateFlow()
 
-    private val repository = WellnessDataRepository(application)
-
-    private val _uiState = MutableStateFlow(AddScreenState())
-    val uiState: StateFlow<AddScreenState> = _uiState.asStateFlow()
-
-    // --- Event Handlers to update the UI state ---
     fun onWeightChange(weight: String) {
         _uiState.update { it.copy(weight = weight) }
     }
@@ -48,28 +46,61 @@ class AddViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(sleepHours = hours) }
     }
 
-    // --- Function to save the entry ---
+    fun onWaterIntakeChange(intake: Float) {
+        _uiState.update { it.copy(waterIntake = intake) }
+    }
+
+    fun onProteinIntakeChange(intake: Float) {
+        _uiState.update { it.copy(proteinIntake = intake) }
+    }
+
     fun saveEntry() {
-        viewModelScope.launch {
-            val currentState = _uiState.value
-
-            val wellnessData = WellnessData(
-                weight = currentState.weight.toDoubleOrNull() ?: 0.0,
-                dietRating = currentState.dietRating.roundToInt(),
-                activityLevel = currentState.activityRating.roundToInt(),
-                sleepHours = currentState.sleepHours.roundToInt()
-            )
-
-            repository.addWellnessData(wellnessData)
-
-            // Show the confirmation dialog
-            _uiState.update { it.copy(showSaveConfirmation = true) }
+        val currentUiState = _uiState.value
+        val weightValue = currentUiState.weight.toDoubleOrNull()
+        if (weightValue != null) {
+            viewModelScope.launch {
+                val entryToSave = WellnessData(
+                    weight = weightValue,
+                    dietRating = if ("DIET" in selectedQuestions) currentUiState.dietRating.roundToInt() else null,
+                    activityLevel = if ("ACTIVITY" in selectedQuestions) currentUiState.activityRating.roundToInt() else null,
+                    sleepHours = if ("SLEEP" in selectedQuestions) currentUiState.sleepHours.roundToInt() else null,
+                    waterIntake = if ("WATER" in selectedQuestions) currentUiState.waterIntake.roundToInt() else null,
+                    proteinIntake = if ("PROTEIN" in selectedQuestions) currentUiState.proteinIntake.roundToInt() else null
+                )
+                repository.addWellnessData(entryToSave)
+                // --- MODIFIED: Reset all ratings to 5f after saving ---
+                _uiState.update {
+                    it.copy(
+                        weight = "",
+                        dietRating = 5f,
+                        activityRating = 5f,
+                        sleepHours = 5f,
+                        waterIntake = 5f,
+                        proteinIntake = 5f,
+                        showSaveConfirmation = true
+                    )
+                }
+            }
         }
     }
 
-    // --- Function to dismiss the dialog and reset fields ---
     fun dismissSaveConfirmation() {
-        // Reset the entire state, which also hides the dialog
-        _uiState.value = AddScreenState()
+        _uiState.update { it.copy(showSaveConfirmation = false) }
+    }
+
+    class Factory(
+        private val application: Application,
+        private val selectedQuestions: Set<String>
+    ) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(AddViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return AddViewModel(
+                    repository = WellnessDataRepository(application),
+                    selectedQuestions = selectedQuestions
+                ) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
     }
 }
