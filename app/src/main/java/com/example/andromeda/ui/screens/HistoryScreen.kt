@@ -26,6 +26,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
+import androidx.compose.foundation.Canvas
+import androidx.compose.material3.Surface
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 
 @Composable
 fun HistoryScreen(
@@ -42,12 +49,6 @@ fun HistoryScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Text(
-            "Wellness History",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
         if (allWellnessData.isEmpty()) {
             Text("No wellness data has been saved yet.")
         } else {
@@ -55,8 +56,31 @@ fun HistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
+                // Pinned header: title + chart
+                stickyHeader {
+                    Surface(color = MaterialTheme.colorScheme.background) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp)
+                        ) {
+                            Text(
+                                "Wellness History",
+                                style = MaterialTheme.typography.headlineMedium,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            WeightLineChart(
+                                data = allWellnessData, // chronological spacing
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp)
+                            )
+                        }
+                    }
+                }
+
+                // The cards list
                 items(allWellnessData.reversed()) { data ->
-                    // --- MODIFIED: No longer passing selectedQuestions ---
                     WellnessDataCard(data = data)
                 }
             }
@@ -130,3 +154,102 @@ fun WellnessDataCard(data: WellnessData) {
         }
     }
 }
+@Composable
+fun WeightLineChart(
+    data: List<WellnessData>,
+    modifier: Modifier = Modifier
+) {
+    val weights: List<Double> = remember(data) { data.map { it.weight } }
+    val dates: List<String> = remember(data) { data.map { it.timestamp } }
+
+    if (weights.isEmpty()) return
+
+    Canvas(modifier = modifier) {
+        val paddingLeft = 100f
+        val paddingBottom = 70f
+        val paddingTop = 40f
+        val paddingRight = 40f
+
+        val w = size.width - paddingLeft - paddingRight
+        val h = size.height - paddingTop - paddingBottom
+
+        val min = (weights.minOrNull() ?: 0.0)
+        val max = (weights.maxOrNull() ?: 1.0)
+        val range = (max - min).let { if (it <= 0.0001) 1.0 else it }
+
+        val n = weights.size
+        val path = Path()
+
+        fun xy(i: Int): Offset {
+            val x = paddingLeft + (if (n == 1) 0f else (i.toFloat() / (n - 1)) * w)
+            val yRatio = ((weights[i] - min) / range).toFloat()
+            val y = paddingTop + (1 - yRatio) * h
+            return Offset(x, y)
+        }
+
+        // Draw axes
+        val originY = size.height - paddingBottom
+        drawLine(Color.Black, Offset(paddingLeft, paddingTop), Offset(paddingLeft, originY), strokeWidth = 2f)
+        drawLine(Color.Black, Offset(paddingLeft, originY), Offset(size.width - paddingRight, originY), strokeWidth = 2f)
+
+        // Draw Y labels (3 levels)
+        val labelPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.BLACK
+            textSize = 28f
+        }
+        val ySteps = 3
+        for (i in 0..ySteps) {
+            val value = min + (i / ySteps.toDouble()) * range
+            val y = paddingTop + (1 - (i / ySteps.toFloat())) * h
+            drawContext.canvas.nativeCanvas.drawText(
+                String.format("%.1f", value),
+                paddingLeft - 85f,
+                y + 10f,
+                labelPaint
+            )
+        }
+
+        // Draw X labels (dates)
+        val xLabelCount = minOf(4, n)
+        val step = if (n > 1) (n - 1) / (xLabelCount - 1).toFloat() else 1f
+        for (i in 0 until xLabelCount) {
+            val idx = (i * step).toInt().coerceAtMost(n - 1)
+            val x = xy(idx).x
+            val label = dates[idx]
+            drawContext.canvas.nativeCanvas.drawText(
+                label,
+                x - 40f,
+                originY + 50f,
+                labelPaint
+            )
+        }
+
+        // Draw line
+        path.moveTo(xy(0).x, xy(0).y)
+        for (i in 1 until n) path.lineTo(xy(i).x, xy(i).y)
+        drawPath(path, color = Color(0xFF4CAF50), style = Stroke(width = 4f))
+
+        // Draw points
+        for (i in 0 until n) {
+            val p = xy(i)
+            drawCircle(color = Color(0xFF388E3C), radius = 6f, center = p)
+        }
+
+        // Y-axis title (Weight (kg))
+        drawContext.canvas.nativeCanvas.drawText(
+            "Weight (kg)",
+            paddingLeft - 100f,
+            paddingTop - 50f,
+            labelPaint
+        )
+
+        // X-axis title (Date)
+        drawContext.canvas.nativeCanvas.drawText(
+            "Date",
+            size.width / 2 - 30f,
+            size.height + 10f,
+            labelPaint
+        )
+    }
+}
+
