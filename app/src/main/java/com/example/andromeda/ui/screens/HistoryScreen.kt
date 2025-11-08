@@ -1,5 +1,7 @@
 package com.example.andromeda.ui.screens
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +36,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HistoryScreen(
     // This parameter is no longer needed for the cards, but might be useful for other features.
@@ -154,15 +157,29 @@ fun WellnessDataCard(data: WellnessData) {
         }
     }
 }
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun WeightLineChart(
     data: List<WellnessData>,
     modifier: Modifier = Modifier
 ) {
-    val weights: List<Double> = remember(data) { data.map { it.weight } }
-    val dates: List<String> = remember(data) { data.map { it.timestamp } }
+    // --- keep only last 30 days, sort by date, and format labels as MM-dd ---
+    val recentSorted = remember(data) {
+        val now = java.time.LocalDate.now()
+        val cutoff = now.minusDays(30)
+        data.mapNotNull { wd ->
+            // Parse just the date part; your timestamps look like "yyyy-MM-dd..."
+            val d = runCatching { java.time.LocalDate.parse(wd.timestamp.take(10)) }.getOrNull()
+            d?.let { Triple(wd.weight, wd.timestamp, it) } // (weight, rawTs, date)
+        }
+            .filter { it.third >= cutoff }
+            .sortedBy { it.third }
+    }
 
+    val weights = recentSorted.map { it.first }
+    val datesFmt = recentSorted.map { it.third.format(java.time.format.DateTimeFormatter.ofPattern("MM-dd")) }
     if (weights.isEmpty()) return
+    val n = weights.size
 
     Canvas(modifier = modifier) {
         val paddingLeft = 100f
@@ -173,12 +190,9 @@ fun WeightLineChart(
         val w = size.width - paddingLeft - paddingRight
         val h = size.height - paddingTop - paddingBottom
 
-        val min = (weights.minOrNull() ?: 0.0)
-        val max = (weights.maxOrNull() ?: 1.0)
+        val min = weights.minOrNull() ?: 0.0
+        val max = weights.maxOrNull() ?: 1.0
         val range = (max - min).let { if (it <= 0.0001) 1.0 else it }
-
-        val n = weights.size
-        val path = Path()
 
         fun xy(i: Int): Offset {
             val x = paddingLeft + (if (n == 1) 0f else (i.toFloat() / (n - 1)) * w)
@@ -187,69 +201,61 @@ fun WeightLineChart(
             return Offset(x, y)
         }
 
-        // Draw axes
+        // Axes
         val originY = size.height - paddingBottom
         drawLine(Color.Black, Offset(paddingLeft, paddingTop), Offset(paddingLeft, originY), strokeWidth = 2f)
         drawLine(Color.Black, Offset(paddingLeft, originY), Offset(size.width - paddingRight, originY), strokeWidth = 2f)
 
-        // Draw Y labels (3 levels)
-        val labelPaint = android.graphics.Paint().apply {
+        // Y ticks/labels
+        val paintY = android.graphics.Paint().apply {
             color = android.graphics.Color.BLACK
             textSize = 28f
+            isAntiAlias = true
         }
         val ySteps = 3
         for (i in 0..ySteps) {
             val value = min + (i / ySteps.toDouble()) * range
             val y = paddingTop + (1 - (i / ySteps.toFloat())) * h
-            drawContext.canvas.nativeCanvas.drawText(
-                String.format("%.1f", value),
-                paddingLeft - 85f,
-                y + 10f,
-                labelPaint
-            )
+            drawContext.canvas.nativeCanvas.drawText(String.format("%.1f", value), paddingLeft - 85f, y + 10f, paintY)
         }
 
-        // Draw X labels (dates)
-        val xLabelCount = minOf(4, n)
-        val step = if (n > 1) (n - 1) / (xLabelCount - 1).toFloat() else 1f
-        for (i in 0 until xLabelCount) {
-            val idx = (i * step).toInt().coerceAtMost(n - 1)
-            val x = xy(idx).x
-            val label = dates[idx]
-            drawContext.canvas.nativeCanvas.drawText(
-                label,
-                x - 40f,
-                originY + 50f,
-                labelPaint
-            )
+        // X labels aligned to points; show at most ~6 labels to keep it clean
+        val paintX = android.graphics.Paint().apply {
+            color = android.graphics.Color.BLACK
+            textSize = 30f
+            isAntiAlias = true
+        }
+        val maxLabels = 6
+        val every = (n / maxLabels).coerceAtLeast(1)
+        for (i in 0 until n step every) {
+            val x = xy(i).x
+            val label = datesFmt[i]          // "MM-dd"
+            drawLine(Color.Black, Offset(x, originY), Offset(x, originY + 6f), strokeWidth = 2f)
+            val tw = paintX.measureText(label)
+            drawContext.canvas.nativeCanvas.drawText(label, x - tw / 2f, originY + 40f, paintX)
         }
 
-        // Draw line
-        path.moveTo(xy(0).x, xy(0).y)
-        for (i in 1 until n) path.lineTo(xy(i).x, xy(i).y)
+        // Line + points
+        val path = Path().apply {
+            moveTo(xy(0).x, xy(0).y)
+            for (i in 1 until n) lineTo(xy(i).x, xy(i).y)
+        }
         drawPath(path, color = Color(0xFF4CAF50), style = Stroke(width = 4f))
+        for (i in 0 until n) drawCircle(Color(0xFF388E3C), radius = 6f, center = xy(i))
 
-        // Draw points
-        for (i in 0 until n) {
-            val p = xy(i)
-            drawCircle(color = Color(0xFF388E3C), radius = 6f, center = p)
-        }
-
-        // Y-axis title (Weight (kg))
+        // Titles
         drawContext.canvas.nativeCanvas.drawText(
             "Weight (kg)",
-            paddingLeft - 100f,
-            paddingTop - 50f,
-            labelPaint
+            paddingLeft - 100f, paddingTop - 50f,
+            paintY
         )
-
-        // X-axis title (Date)
         drawContext.canvas.nativeCanvas.drawText(
             "Date",
             size.width / 2 - 30f,
-            size.height + 10f,
-            labelPaint
+            size.height + 20f,
+            paintX
         )
     }
 }
+
 
