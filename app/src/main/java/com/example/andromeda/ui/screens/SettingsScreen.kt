@@ -260,7 +260,7 @@ fun AccountSettings(onBackClicked: () -> Unit) {
                 OutlinedTextField(
                     value = targetWeight,
                     onValueChange = { targetWeight = it },
-                    label = { Text("Target Weight") },
+                    label = { Text("Target Weight (lbs)") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }

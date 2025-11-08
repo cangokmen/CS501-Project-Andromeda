@@ -48,7 +48,8 @@ fun AddScreen(
                 .padding(paddingValues)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            // --- MODIFIED: Increased spacing from 16.dp to 24.dp ---
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Text("ADD", style = MaterialTheme.typography.headlineMedium)
 
@@ -56,8 +57,6 @@ fun AddScreen(
                 weight = uiState.weight,
                 onWeightChange = viewModel::onWeightChange
             )
-
-            // --- MODIFIED: Dynamically number the questions ---
 
             // Define the order of questions to ensure consistency
             val questionOrder = listOf("DIET", "ACTIVITY", "SLEEP", "WATER", "PROTEIN")
@@ -129,7 +128,7 @@ fun WeightInput(weight: String, onWeightChange: (String) -> Unit) {
     OutlinedTextField(
         value = weight,
         onValueChange = onWeightChange,
-        label = { Text("Weight (kg)") },
+        label = { Text("Weight (lbs)") },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         singleLine = true,
         modifier = Modifier.fillMaxWidth()
