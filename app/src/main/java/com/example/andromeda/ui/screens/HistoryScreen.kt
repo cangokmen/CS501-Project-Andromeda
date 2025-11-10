@@ -291,7 +291,7 @@ fun WeightLineChart(
             paintX)
 
         drawContext.canvas.nativeCanvas.drawText(
-            "Weight (kg)",
+            "Weight (lb)",
             paddingLeft - 100f,
             paddingTop - 50f,
             paintY )
