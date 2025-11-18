@@ -1,4 +1,4 @@
-package com.example.andromeda.ui.screens
+package com.example.andromeda.viewmodels
 
 import android.app.Application
 import androidx.lifecycle.ViewModel

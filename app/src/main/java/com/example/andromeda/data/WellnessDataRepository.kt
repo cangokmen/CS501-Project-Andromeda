@@ -1,6 +1,7 @@
 package com.example.andromeda.data
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -10,7 +11,6 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import android.util.Log
 
 // Extension property to create a DataStore instance
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "wellness_data")
@@ -21,7 +21,7 @@ class WellnessDataRepository(private val context: Context) {
 
     init {
         // This log will appear when the repository is first created.
-        Log.e("WellnessDataRepository", "Repository has been initialized.")
+        Log.d("WellnessDataRepository", "Repository has been initialized.")
     }
 
     // Define a key for storing the list of wellness data as a JSON string
@@ -39,7 +39,7 @@ class WellnessDataRepository(private val context: Context) {
     // Function to add a new wellness entry
     suspend fun addWellnessData(wellnessData: WellnessData) {
         // This is a high-visibility error log. If this function is called, you will see this.
-        Log.e("WellnessDataRepository", "!!! ADDING DATA: $wellnessData !!!")
+        Log.d("WellnessDataRepository", "ADDING DATA: $wellnessData")
         context.dataStore.edit { preferences ->
             // Retrieve the current list
             val currentJson = preferences[WELLNESS_DATA_LIST_KEY] ?: "[]"
@@ -51,6 +51,17 @@ class WellnessDataRepository(private val context: Context) {
 
             // Save the updated list back to DataStore
             preferences[WELLNESS_DATA_LIST_KEY] = gson.toJson(currentList)
+        }
+    }
+
+    /**
+     * Deletes all wellness data from the DataStore.
+     */
+    suspend fun clearAllData() {
+        Log.w("WellnessDataRepository", "CLEARING ALL WELLNESS DATA")
+        context.dataStore.edit { preferences ->
+            // Overwrite the existing data with an empty JSON array
+            preferences[WELLNESS_DATA_LIST_KEY] = "[]"
         }
     }
 }
