@@ -3,6 +3,7 @@ package com.example.andromeda.ui.screens
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,9 +14,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -30,17 +33,33 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.ai.client.generativeai.GenerativeModel
+import kotlinx.coroutines.launch
+import com.example.andromeda.BuildConfig
+import androidx.compose.material3.Button
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers // <-- Import Dispatchers
+import kotlinx.coroutines.withContext // <-- Import withContext
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HomeScreen(
     // This parameter is no longer needed for the cards, but might be useful for other features.
     // For now, it's kept to maintain the signature from AppNavHost.
-    selectedQuestions: Set<String>
 ) {
     val context = LocalContext.current
     val repository = remember { WellnessDataRepository(context) }
     val allWellnessData by repository.allWellnessData.collectAsState(initial = emptyList())
+    var geminiResponse by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
+    var isLoading by remember { mutableStateOf(false) } // State to show a loading indicator
 
     Column(
         modifier = Modifier
@@ -77,6 +96,38 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+        Button(onClick = {
+            // Set loading to true and launch the coroutine
+            isLoading = true
+            coroutineScope.launch {
+                try {
+                    val responseText = withContext(Dispatchers.IO) { // <-- Perform network call on IO thread
+                        val generativeModel = GenerativeModel(
+                            modelName = "gemini-2.5-pro",
+                            apiKey = BuildConfig.GEMINI_API_KEY
+                        )
+                        val prompt = "Write a story about a magic backpack."
+                        val response = generativeModel.generateContent(prompt)
+                        response.text ?: "Error: No text in response"
+                    }
+                    geminiResponse = responseText
+                } catch (e: Exception) {
+                    // It's good practice to catch exceptions
+                    geminiResponse = "Error: ${e.message}"
+                } finally {
+                    isLoading = false // Hide loading indicator
+                }
+            }
+        }, enabled = !isLoading) { // Disable button while loading
+            Text("Test Gemini")
+        }
+
+        // Show a loading indicator or the response
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.padding(top = 8.dp))
+        } else {
+            Text(text = geminiResponse, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -218,5 +269,3 @@ fun WeightLineChart(
             paintY )
     }
 }
-
-

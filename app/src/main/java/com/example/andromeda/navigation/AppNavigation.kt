@@ -36,7 +36,7 @@ fun AppNavHost(
         modifier = modifier
     ) {
         // Pass selectedQuestions to screens that need it
-        composable(Screen.Home.route) { HomeScreen(selectedQuestions = selectedQuestions) }
+        composable(Screen.Home.route) { HomeScreen() }
         composable(Screen.History.route) { HistoryScreen() }
         composable(Screen.Add.route) { AddScreen(selectedQuestions = selectedQuestions) }
         composable(Screen.Settings.route) {
