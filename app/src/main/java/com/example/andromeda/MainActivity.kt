@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
@@ -121,6 +122,7 @@ fun MainApp(
     val navController = rememberNavController()
 
     val navItems = listOf(
+        BottomNavItem("Home", Icons.Default.Home, Screen.Home.route),
         BottomNavItem("History", Icons.Default.DateRange, Screen.History.route),
         BottomNavItem("Add", Icons.Default.AddCircle, Screen.Add.route),
         BottomNavItem("Settings", Icons.Default.Settings, Screen.Settings.route)
