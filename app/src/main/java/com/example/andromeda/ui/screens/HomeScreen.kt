@@ -1,16 +1,20 @@
 package com.example.andromeda.ui.screens
 
+import android.app.Application
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,120 +22,102 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import com.example.andromeda.data.WellnessData
-import com.example.andromeda.data.WellnessDataRepository
-import androidx.compose.foundation.Canvas
-import androidx.compose.material3.Surface
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.ai.client.generativeai.GenerativeModel
-import kotlinx.coroutines.launch
-import com.example.andromeda.BuildConfig
-import androidx.compose.material3.Button
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.Dispatchers // <-- Import Dispatchers
-import kotlinx.coroutines.withContext // <-- Import withContext
+import com.example.andromeda.data.WellnessData
+import com.example.andromeda.data.WellnessDataRepository
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HomeScreen(
-    // This parameter is no longer needed for the cards, but might be useful for other features.
-    // For now, it's kept to maintain the signature from AppNavHost.
+    viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory(LocalContext.current.applicationContext as Application))
 ) {
     val context = LocalContext.current
     val repository = remember { WellnessDataRepository(context) }
     val allWellnessData by repository.allWellnessData.collectAsState(initial = emptyList())
-    var geminiResponse by remember { mutableStateOf("") }
-    val coroutineScope = rememberCoroutineScope()
-    var isLoading by remember { mutableStateOf(false) } // State to show a loading indicator
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Automatically generate suggestions when the screen is first composed
+    LaunchedEffect(Unit) {
+        viewModel.generateSuggestions()
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(16.dp),
+        // This arrangement is for the top-level elements (Title, Chart, Suggestions Block)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        Text(
+            "Home Page",
+            style = MaterialTheme.typography.headlineMedium,
+        )
+
         if (allWellnessData.isEmpty()) {
             Text("No wellness data has been saved yet.")
         } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 8.dp)
-            ) {
-                // Pinned header: title + chart
-                stickyHeader {
-                    Surface(color = MaterialTheme.colorScheme.background) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 12.dp)
-                        ) {
-                            Text(
-                                "Home Page",
-                                style = MaterialTheme.typography.headlineMedium,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            WeightLineChart(
-                                data = allWellnessData, // chronological spacing
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(180.dp)
-                            )
+            // Chart with a title
+            Text(
+                "30-Day Weight Trend",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            WeightLineChart(
+                data = allWellnessData,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+            )
+        }
+
+        // --- Suggestions Section ---
+        // The outer Column will now center the content within the remaining space.
+        Column(
+            modifier = Modifier
+                .fillMaxSize(), // Fill the remaining space
+            verticalArrangement = Arrangement.Center, // Center content vertically
+            horizontalAlignment = Alignment.CenterHorizontally // Center content horizontally
+        ) {
+            when {
+                uiState.isLoading -> {
+                    CircularProgressIndicator()
+                }
+
+                uiState.error != null -> {
+                    Text(uiState.error!!, color = MaterialTheme.colorScheme.error)
+                }
+
+                else -> {
+                    // This inner column will hold the cards together
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        uiState.suggestions.forEach { suggestion ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Text(
+                                    text = suggestion,
+                                    modifier = Modifier.padding(16.dp),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
                         }
                     }
                 }
             }
         }
-        Button(onClick = {
-            // Set loading to true and launch the coroutine
-            isLoading = true
-            coroutineScope.launch {
-                try {
-                    val responseText = withContext(Dispatchers.IO) { // <-- Perform network call on IO thread
-                        val generativeModel = GenerativeModel(
-                            modelName = "gemini-2.5-pro",
-                            apiKey = BuildConfig.GEMINI_API_KEY
-                        )
-                        val prompt = "Write a story about a magic backpack."
-                        val response = generativeModel.generateContent(prompt)
-                        response.text ?: "Error: No text in response"
-                    }
-                    geminiResponse = responseText
-                } catch (e: Exception) {
-                    // It's good practice to catch exceptions
-                    geminiResponse = "Error: ${e.message}"
-                } finally {
-                    isLoading = false // Hide loading indicator
-                }
-            }
-        }, enabled = !isLoading) { // Disable button while loading
-            Text("Test Gemini")
-        }
-
-        // Show a loading indicator or the response
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.padding(top = 8.dp))
-        } else {
-            Text(text = geminiResponse, modifier = Modifier.padding(top = 8.dp))
-        }
     }
 }
-
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun WeightLineChart(
