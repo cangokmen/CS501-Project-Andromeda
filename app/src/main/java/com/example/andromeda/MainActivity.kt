@@ -7,11 +7,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+// Add this import for the chat icon
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
+// Add this import for the FloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -49,7 +53,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Updated ViewModel
+// ViewModel and data class definitions remain unchanged...
 class MainViewModel(private val userPreferencesRepository: UserPreferencesRepository) :
     ViewModel() {
     val isDarkTheme: StateFlow<Boolean> = userPreferencesRepository.isDarkTheme
@@ -66,7 +70,6 @@ class MainViewModel(private val userPreferencesRepository: UserPreferencesReposi
             initialValue = false
         )
 
-    // New state for selected questions
     val selectedQuestions: StateFlow<Set<String>> = userPreferencesRepository.selectedQuestions
         .stateIn(
             scope = viewModelScope,
@@ -86,14 +89,12 @@ class MainViewModel(private val userPreferencesRepository: UserPreferencesReposi
         }
     }
 
-    // New function to update questions
     fun setQuestions(questions: Set<String>) {
         viewModelScope.launch {
             userPreferencesRepository.saveSelectedQuestions(questions)
         }
     }
 
-    // ViewModel Factory remains the same
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
@@ -118,8 +119,11 @@ fun MainApp(
 ) {
     val useDarkTheme by viewModel.isDarkTheme.collectAsState()
     val useBiggerText by viewModel.useBiggerText.collectAsState()
-    val selectedQuestions by viewModel.selectedQuestions.collectAsState() // Get question state
+    val selectedQuestions by viewModel.selectedQuestions.collectAsState()
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
 
     val navItems = listOf(
         BottomNavItem("Home", Icons.Default.Home, Screen.Home.route),
@@ -137,9 +141,7 @@ fun MainApp(
         Scaffold(
             bottomBar = {
                 BottomAppBar {
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
-
                     navItems.forEach { item ->
                         NavigationBarItem(
                             selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
@@ -158,6 +160,30 @@ fun MainApp(
                     }
                 }
             },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = {
+                        // --- MODIFICATION START ---
+                        // Use the same navigation logic as the BottomAppBar
+                        navController.navigate(Screen.Chatbot.route) {
+                            // This ensures that if the user is on a main screen (like Home)
+                            // and navigates to Chatbot, pressing back will correctly
+                            // return them to Home with the navigation state preserved.
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                        // --- MODIFICATION END ---
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = "Open Chatbot"
+                    )
+                }
+            }
         ) { innerPadding ->
             AppNavHost(
                 navController = navController,
@@ -166,8 +192,8 @@ fun MainApp(
                 onSetTheme = viewModel::setTheme,
                 useBiggerText = useBiggerText,
                 onSetTextSize = viewModel::setTextSize,
-                selectedQuestions = selectedQuestions, // Pass state
-                onSetQuestions = viewModel::setQuestions // Pass function
+                selectedQuestions = selectedQuestions,
+                onSetQuestions = viewModel::setQuestions
             )
         }
     }
