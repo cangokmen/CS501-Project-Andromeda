@@ -1,0 +1,191 @@
+[
+  {
+    "timestamp": "2025-10-31",
+    "weight": 185.5,
+    "sleepHours": 7,
+    "activityLevel": 3,
+    "dietRating": 5,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-01",
+    "weight": 185.2,
+    "sleepHours": 8,
+    "activityLevel": 6,
+    "dietRating": 7,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-02",
+    "weight": 185.0,
+    "sleepHours": 7,
+    "activityLevel": 5,
+    "dietRating": 8,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-03",
+    "weight": 184.6,
+    "sleepHours": 6,
+    "activityLevel": 7,
+    "dietRating": 6,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-04",
+    "weight": 184.4,
+    "sleepHours": 8,
+    "activityLevel": 8,
+    "dietRating": 7,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-05",
+    "weight": 184.1,
+    "sleepHours": 7,
+    "activityLevel": 4,
+    "dietRating": 4,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-06",
+    "weight": 183.8,
+    "sleepHours": 8,
+    "activityLevel": 7,
+    "dietRating": 8,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-07",
+    "weight": 183.5,
+    "sleepHours": 7,
+    "activityLevel": 9,
+    "dietRating": 8,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-08",
+    "weight": 183.6,
+    "sleepHours": 9,
+    "activityLevel": 2,
+    "dietRating": 6,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-09",
+    "weight": 183.1,
+    "sleepHours": 7,
+    "activityLevel": 6,
+    "dietRating": 7,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-10",
+    "weight": 182.8,
+    "sleepHours": 8,
+    "activityLevel": 7,
+    "dietRating": 8,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-11",
+    "weight": 182.5,
+    "sleepHours": 6,
+    "activityLevel": 8,
+    "dietRating": 7,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-12",
+    "weight": 182.2,
+    "sleepHours": 5,
+    "activityLevel": 5,
+    "dietRating": 6,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-13",
+    "weight": 182.0,
+    "sleepHours": 8,
+    "activityLevel": 7,
+    "dietRating": 8,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-14",
+    "weight": 181.7,
+    "sleepHours": 7,
+    "activityLevel": 8,
+    "dietRating": 7,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-15",
+    "weight": 181.4,
+    "sleepHours": 9,
+    "activityLevel": 9,
+    "dietRating": 8,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-16",
+    "weight": 181.5,
+    "sleepHours": 8,
+    "activityLevel": 3,
+    "dietRating": 5,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-17",
+    "weight": 181.1,
+    "sleepHours": 7,
+    "activityLevel": 7,
+    "dietRating": 8,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-18",
+    "weight": 180.8,
+    "sleepHours": 8,
+    "activityLevel": 8,
+    "dietRating": 9,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-19",
+    "weight": 180.5,
+    "sleepHours": 7,
+    "activityLevel": 9,
+    "dietRating": 8,
+    "waterIntake": null,
+    "proteinIntake": null
+  },
+  {
+    "timestamp": "2025-11-20",
+    "weight": 180.1,
+    "sleepHours": 8,
+    "activityLevel": 7,
+    "dietRating": 9,
+    "waterIntake": null,
+    "proteinIntake": null
+  }
+]

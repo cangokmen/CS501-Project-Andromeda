@@ -1,3 +1,13 @@
+import java.util.Properties
+import java.io.FileInputStream
+
+// This block reads the local.properties file
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -14,6 +24,9 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        // This line now correctly reads the property and makes it available in BuildConfig
+        buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY") ?: ""}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -35,12 +48,13 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
+        // This must be true to generate the BuildConfig file
+        buildConfig = true
         compose = true
     }
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -60,4 +74,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.gson)
+
+    // Gemini API dependency
+    implementation("com.google.ai.client.generativeai:generativeai:0.7.0")
 }

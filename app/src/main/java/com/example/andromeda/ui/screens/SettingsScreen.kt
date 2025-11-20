@@ -48,17 +48,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
 import com.example.andromeda.ui.theme.AndromedaTheme
 import kotlinx.coroutines.launch
 import kotlin.text.toBigDecimal
-import com.example.andromeda.data.WellnessData
 import java.math.RoundingMode
+import com.example.andromeda.R // Import your project's R file
+import com.google.gson.Gson // Import Gson
+import com.google.gson.reflect.TypeToken // Import TypeToken
+import kotlinx.coroutines.launch
+import java.io.InputStreamReader // Import InputStreamReader
 
 data class SettingItem(
     val title: String,
@@ -162,23 +168,29 @@ fun AccountSettings(onBackClicked: () -> Unit) {
     val context = LocalContext.current
     val repository = remember { WellnessDataRepository(context) }
 
-    // --- NEW: Function to seed data ---
+    // --- UPDATED: Function to seed data from JSON file ---
     val seedData: () -> Unit = {
         coroutineScope.launch {
             // Clear existing data to avoid duplicates
             repository.clearAllData()
 
-            val dataToSeed = listOf(
-                WellnessData(timestamp = "2025-11-06", weight = 161.1, sleepHours = 7, activityLevel = 6, dietRating = 3, waterIntake = null, proteinIntake = null),
-                WellnessData(timestamp = "2025-11-07", weight = 160.5, sleepHours = 5, activityLevel = 9, dietRating = 6, waterIntake = null, proteinIntake = null),
-                WellnessData(timestamp = "2025-11-08", weight = 160.3, sleepHours = 10, activityLevel = 7, dietRating = 8, waterIntake = null, proteinIntake = null),
-                WellnessData(timestamp = "2025-11-09", weight = 160.0, sleepHours = 2, activityLevel = 8, dietRating = 7, waterIntake = null, proteinIntake = null)
-            )
+            // Read the JSON file from the raw resources folder
+            val inputStream = context.resources.openRawResource(R.raw.sample_wellness_data) // Corrected line
+            val reader = InputStreamReader(inputStream)
+            val listType = object : TypeToken<List<WellnessData>>() {}.type
+            val dataToSeed: List<WellnessData> = Gson().fromJson(reader, listType)
+
 
             dataToSeed.forEach { data ->
                 // Round weight to one decimal place for consistency
-                val roundedWeight = data.weight.toBigDecimal().setScale(1, RoundingMode.HALF_UP).toDouble()
-                repository.addWellnessData(data.copy(weight = roundedWeight))
+                val roundedWeight = data.weight?.toBigDecimal()?.setScale(1, RoundingMode.HALF_UP)?.toDouble()
+
+                // Only add the data if the roundedWeight is not null
+                if (roundedWeight != null) {
+                    repository.addWellnessData(data.copy(weight = roundedWeight))
+                } else {
+                    // do nothing, weight cant be null
+                }
             }
         }
     }
@@ -259,7 +271,7 @@ fun AccountSettings(onBackClicked: () -> Unit) {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // --- NEW: Button to manually seed the data ---
+        // --- Button to manually seed the data remains the same ---
         Button(
             onClick = { seedData() },
             modifier = Modifier.fillMaxWidth(),
@@ -275,10 +287,11 @@ fun AccountSettings(onBackClicked: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
         ) {
-            Text("RESET WELLNESS DATA", color = MaterialTheme.colorScheme.onErrorContainer)
+            Text("RESET APP DATA", color = MaterialTheme.colorScheme.onErrorContainer)
         }
     }
 }
+
 
 @Composable
 fun PreferencesSettings(
