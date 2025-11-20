@@ -161,27 +161,29 @@ fun MainApp(
                 }
             },
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = {
-                        // --- MODIFICATION START ---
-                        // Use the same navigation logic as the BottomAppBar
-                        navController.navigate(Screen.Chatbot.route) {
-                            // This ensures that if the user is on a main screen (like Home)
-                            // and navigates to Chatbot, pressing back will correctly
-                            // return them to Home with the navigation state preserved.
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+                if (currentRoute != Screen.Chatbot.route) {
+                    FloatingActionButton(
+                        onClick = {
+                            // --- MODIFICATION START ---
+                            // Use the same navigation logic as the BottomAppBar
+                            navController.navigate(Screen.Chatbot.route) {
+                                // This ensures that if the user is on a main screen (like Home)
+                                // and navigates to Chatbot, pressing back will correctly
+                                // return them to Home with the navigation state preserved.
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
+                            // --- MODIFICATION END ---
                         }
-                        // --- MODIFICATION END ---
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = "Open Chatbot"
+                        )
                     }
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Person,
-                        contentDescription = "Open Chatbot"
-                    )
                 }
             }
         ) { innerPadding ->
