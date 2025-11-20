@@ -75,7 +75,7 @@ fun WellnessDataCard(data: WellnessData) {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Weight: ${data.weight} kg",
+                    "Weight: ${data.weight} lbs",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )

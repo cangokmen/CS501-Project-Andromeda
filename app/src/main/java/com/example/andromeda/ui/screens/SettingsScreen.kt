@@ -2,6 +2,7 @@ package com.example.andromeda.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.copy
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -25,7 +26,9 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
@@ -40,15 +43,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.andromeda.data.WellnessDataRepository
 import com.example.andromeda.ui.theme.AndromedaTheme
+import kotlinx.coroutines.launch
+import kotlin.text.toBigDecimal
+import com.example.andromeda.data.WellnessData
+import java.math.RoundingMode
 
 data class SettingItem(
     val title: String,
@@ -58,7 +68,7 @@ data class SettingItem(
 
 
 enum class ScreenState {
-    Main, Account, Preferences, Accessibility, QuestionManagement // New
+    Main, Account, Preferences, Accessibility, QuestionManagement
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -68,12 +78,11 @@ fun SettingsScreen(
     onSetTheme: (Boolean) -> Unit = {},
     useBiggerText: Boolean = false,
     onSetTextSize: (Boolean) -> Unit = {},
-    selectedQuestions: Set<String> = setOf(), // Add this
-    onSetQuestions: (Set<String>) -> Unit = {} // Add this
+    selectedQuestions: Set<String> = setOf(),
+    onSetQuestions: (Set<String>) -> Unit = {}
 ) {
     var screenState by remember { mutableStateOf(ScreenState.Main) }
 
-    // FIX: Added targetState and transitionSpec to AnimatedContent
     AnimatedContent(
         targetState = screenState,
         label = "Settings Animation",
@@ -141,6 +150,137 @@ fun SettingsScreen(
 
 
 @Composable
+fun AccountSettings(onBackClicked: () -> Unit) {
+    var name by remember { mutableStateOf("John") }
+    var lastName by remember { mutableStateOf("Doe") }
+    var age by remember { mutableStateOf("30") }
+    var targetWeight by remember { mutableStateOf("180") }
+    var isEditing by remember { mutableStateOf(false) }
+
+    var showResetDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val repository = remember { WellnessDataRepository(context) }
+
+    // --- NEW: Function to seed data ---
+    val seedData: () -> Unit = {
+        coroutineScope.launch {
+            // Clear existing data to avoid duplicates
+            repository.clearAllData()
+
+            val dataToSeed = listOf(
+                WellnessData(timestamp = "2025-11-06", weight = 161.1, sleepHours = 7, activityLevel = 6, dietRating = 3, waterIntake = null, proteinIntake = null),
+                WellnessData(timestamp = "2025-11-07", weight = 160.5, sleepHours = 5, activityLevel = 9, dietRating = 6, waterIntake = null, proteinIntake = null),
+                WellnessData(timestamp = "2025-11-08", weight = 160.3, sleepHours = 10, activityLevel = 7, dietRating = 8, waterIntake = null, proteinIntake = null),
+                WellnessData(timestamp = "2025-11-09", weight = 160.0, sleepHours = 2, activityLevel = 8, dietRating = 7, waterIntake = null, proteinIntake = null)
+            )
+
+            dataToSeed.forEach { data ->
+                // Round weight to one decimal place for consistency
+                val roundedWeight = data.weight.toBigDecimal().setScale(1, RoundingMode.HALF_UP).toDouble()
+                repository.addWellnessData(data.copy(weight = roundedWeight))
+            }
+        }
+    }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reset Data") },
+            text = { Text("Are you sure you want to delete all saved wellness history? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            repository.clearAllData()
+                        }
+                        showResetDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Reset")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showResetDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClicked) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Text("Account Details", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Button(onClick = { isEditing = !isEditing }) {
+                Text(if (isEditing) "Save" else "Edit")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        if (isEditing) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Last Name") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = age, onValueChange = { age = it }, label = { Text("Age") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = targetWeight, onValueChange = { targetWeight = it }, label = { Text("Target Weight (lbs)") }, modifier = Modifier.fillMaxWidth())
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                InfoRow(label = "Name:", value = name)
+                InfoRow(label = "Last Name:", value = lastName)
+                InfoRow(label = "Age:", value = age)
+                InfoRow(label = "Target Weight:", value = "$targetWeight lbs")
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // --- NEW: Button to manually seed the data ---
+        Button(
+            onClick = { seedData() },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        ) {
+            Text("ADD MANUAL DATA", color = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = { showResetDialog = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+        ) {
+            Text("RESET WELLNESS DATA", color = MaterialTheme.colorScheme.onErrorContainer)
+        }
+    }
+}
+
+@Composable
 fun PreferencesSettings(
     onBackClicked: () -> Unit,
     isDarkTheme: Boolean,
@@ -164,7 +304,7 @@ fun PreferencesSettings(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
             Text("Preferences", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.weight(1f)) // Pushes the title to be more centered
+            Spacer(modifier = Modifier.weight(1f))
         }
         Column(
             modifier = Modifier
@@ -198,87 +338,6 @@ fun PreferencesSettings(
     }
 }
 
-@Composable
-fun AccountSettings(onBackClicked: () -> Unit) {
-    // These values would typically be loaded from a ViewModel or repository.
-    var name by remember { mutableStateOf("John") }
-    var lastName by remember { mutableStateOf("Doe") }
-    var age by remember { mutableStateOf("30") }
-    var targetWeight by remember { mutableStateOf("180") }
-
-    var isEditing by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Top bar with back button, title, and edit button
-        Row(
-            modifier = Modifier
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBackClicked) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Account Details", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Button(onClick = { isEditing = !isEditing }) {
-                Text(if (isEditing) "Save" else "Edit")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp)) // Add space below the top bar
-
-        // Content area
-        if (isEditing) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = lastName,
-                    onValueChange = { lastName = it },
-                    label = { Text("Last Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = age,
-                    onValueChange = { age = it },
-                    label = { Text("Age") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = targetWeight,
-                    onValueChange = { targetWeight = it },
-                    label = { Text("Target Weight (lbs)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp) // Increased spacing
-            ) {
-                InfoRow(label = "Name:", value = name)
-                InfoRow(label = "Last Name:", value = lastName)
-                InfoRow(label = "Age:", value = age)
-                InfoRow(label = "Target Weight:", value = targetWeight)
-            }
-        }
-    }
-}
 
 @Composable
 private fun InfoRow(label: String, value: String) {
@@ -287,8 +346,8 @@ private fun InfoRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, fontWeight = FontWeight.Bold, fontSize = 20.sp) // Increased size
-        Text(text = value, fontSize = 20.sp) // Increased size
+        Text(text = label, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text(text = value, fontSize = 20.sp)
     }
 }
 
