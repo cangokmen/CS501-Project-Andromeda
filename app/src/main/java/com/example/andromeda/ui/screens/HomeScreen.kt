@@ -59,7 +59,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            "Home Page",
+            "Home",
             style = MaterialTheme.typography.headlineMedium,
         )
 
@@ -102,12 +102,18 @@ fun HomeScreen(
                         uiState.suggestions.forEach { suggestion ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                // Set the background of the card to the theme's surface color (LightGreen)
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                )
                             ) {
                                 Text(
                                     text = suggestion,
                                     modifier = Modifier.padding(16.dp),
-                                    style = MaterialTheme.typography.bodyLarge
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    // Ensure text color is readable on the new background
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }

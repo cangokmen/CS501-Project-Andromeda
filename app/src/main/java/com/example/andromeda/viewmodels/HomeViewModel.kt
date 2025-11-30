@@ -67,15 +67,17 @@ class HomeViewModel(private val repository: WellnessDataRepository) : ViewModel(
 
     private fun createPrompt(data: List<WellnessData>): String {
         val dataSummary = data.joinToString(separator = "\n") { entry ->
-            "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
+            "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: "N/A"}, " +
+                    "Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
         }
 
         return """
         Based on the following recent wellness data for a user:
         $dataSummary
 
-        Please provide 3 very short, encouraging, and actionable suggestions or motivational tips to help them improve their habits.
-        The tone should be positive and supportive. Format the output as a simple, un-numbered list, with each tip on a new line starting with a dash.
+        Please provide 3 very short, encouraging, and actionable suggestions or motivational tips to 
+        help them improve their habits. The tone should be positive and supportive. Format the output 
+        as a simple, un-numbered list, with each tip on a new line starting with a dash.
         """.trimIndent()
     }
 

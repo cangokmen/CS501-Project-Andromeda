@@ -1,10 +1,13 @@
 package com.example.andromeda
 
 import android.app.Application
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.copy
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 // Add this import for the chat icon
@@ -17,6 +20,7 @@ import androidx.compose.material3.BottomAppBar
 // Add this import for the FloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -44,10 +48,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            // The MainApp composable now correctly calls your new theme
             MainApp()
         }
     }
@@ -140,7 +146,10 @@ fun MainApp(
     ) {
         Scaffold(
             bottomBar = {
-                BottomAppBar {
+                BottomAppBar(
+                    // Set the background color of the entire bar to our primary green color
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
                     val currentDestination = navBackStackEntry?.destination
                     navItems.forEach { item ->
                         NavigationBarItem(
@@ -155,7 +164,18 @@ fun MainApp(
                                 }
                             },
                             icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) }
+                            label = { Text(item.label) },
+                            // Define the colors for the items on the green background
+                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                // Color when tab is selected (e.g., White)
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                // Color when tab is not selected (a muted version of the selected color)
+                                unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+                                unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+                                // The ripple effect color when you tap the item
+                                indicatorColor = MaterialTheme.colorScheme.secondary
+                            )
                         )
                     }
                 }
@@ -164,20 +184,18 @@ fun MainApp(
                 if (currentRoute != Screen.Chatbot.route) {
                     FloatingActionButton(
                         onClick = {
-                            // --- MODIFICATION START ---
-                            // Use the same navigation logic as the BottomAppBar
                             navController.navigate(Screen.Chatbot.route) {
-                                // This ensures that if the user is on a main screen (like Home)
-                                // and navigates to Chatbot, pressing back will correctly
-                                // return them to Home with the navigation state preserved.
                                 popUpTo(navController.graph.findStartDestination().id) {
                                     saveState = true
                                 }
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                            // --- MODIFICATION END ---
-                        }
+                        },
+                        // Set the background color of the button to your theme's secondary color
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        // Set the icon color to be readable on the secondary color
+                        contentColor = MaterialTheme.colorScheme.onSecondary
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Person,
