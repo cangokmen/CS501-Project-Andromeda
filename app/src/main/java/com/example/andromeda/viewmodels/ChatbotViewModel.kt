@@ -125,7 +125,8 @@ class ChatbotViewModel(private val repository: WellnessDataRepository) : ViewMod
             return "The user has no wellness data logged yet."
         }
         val dataSummary = data.takeLast(30).joinToString(separator = "\n") { entry ->
-            "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
+            "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: 
+            "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
         }
         return """
         You are a friendly and encouraging wellness assistant. The user will ask you questions about their health and progress.

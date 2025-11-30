@@ -94,6 +94,7 @@ fun MessageBubble(message: ChatMessage) {
                         bottomEnd = if (message.isFromUser) 0.dp else 16.dp
                     )
                 )
+                // --- START: MODIFICATION FOR GREEN CHAT BUBBLES ---
                 .background(
                     if (message.isFromUser) MaterialTheme.colorScheme.primaryContainer
                     else MaterialTheme.colorScheme.secondaryContainer
@@ -103,8 +104,14 @@ fun MessageBubble(message: ChatMessage) {
             if (message.isProcessing) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
             } else {
-                Text(text = message.text, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    text = message.text,
+                    // Use the correct "on" color to ensure text is readable
+                    color = if (message.isFromUser) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSecondaryContainer
+                )
             }
+            // --- END: MODIFICATION FOR GREEN CHAT BUBBLES ---
         }
     }
 }
@@ -131,7 +138,9 @@ fun UserInputBar(
         IconButton(onClick = onSendMessage, enabled = userInput.isNotBlank()) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Send,
-                contentDescription = "Send Message"
+                contentDescription = "Send Message",
+                // Make the send icon green to match
+                tint = MaterialTheme.colorScheme.primary
             )
         }
     }
