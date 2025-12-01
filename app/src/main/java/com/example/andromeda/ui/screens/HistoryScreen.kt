@@ -18,20 +18,40 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.andromeda.data.WellnessData
-import androidx.compose.runtime.getValue
 import com.example.andromeda.data.WellnessDataRepository
 
 @Composable
-fun HistoryScreen() {
+fun HistoryScreen(
+    selectedQuestions: Set<String>,
+    currentUserEmail: String?
+) {
     val context = LocalContext.current
     val repository = remember { WellnessDataRepository(context) }
     val allWellnessData by repository.allWellnessData.collectAsState(initial = emptyList())
+
+    // Filter to this user's data (if we know the email)
+    val visibleData = remember(allWellnessData, currentUserEmail) {
+        if (currentUserEmail.isNullOrBlank()) {
+            allWellnessData
+        } else {
+            allWellnessData.filter { it.userEmail == currentUserEmail }
+        }
+    }
+
+    // Collapse multiple entries on the same date -> keep latest one per day
+    val perDayLatest: List<WellnessData> = remember(visibleData) {
+        visibleData
+            .groupBy { it.timestamp.take(10) }   // group by yyyy-MM-dd
+            .map { (_, list) -> list.last() }    // keep last entry for that date
+            .sortedByDescending { it.timestamp } // newest day first
+    }
 
     Column(
         modifier = Modifier
@@ -43,21 +63,22 @@ fun HistoryScreen() {
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 16.dp)
         )
-        if (allWellnessData.isEmpty()) {
+
+        if (perDayLatest.isEmpty()) {
             Text("No wellness data has been saved yet.")
         } else {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-                modifier = Modifier.fillMaxWidth()
+                contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(allWellnessData.reversed()) { data ->
+                items(perDayLatest) { data ->
                     WellnessDataCard(data = data)
                 }
             }
         }
     }
 }
+
 @Composable
 fun WellnessDataCard(data: WellnessData) {
     Card(
@@ -82,10 +103,8 @@ fun WellnessDataCard(data: WellnessData) {
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- MODIFIED: Build the list of metrics based on non-null data fields ---
             val metricsToShow = mutableListOf<@Composable () -> Unit>()
 
-            // Check if each data point exists (is not null) before adding it to the list
             if (data.dietRating != null) {
                 metricsToShow.add { Text("Diet: ${data.dietRating}/10") }
             }
@@ -102,19 +121,17 @@ fun WellnessDataCard(data: WellnessData) {
                 metricsToShow.add { Text("Protein: ${data.proteinIntake}/10") }
             }
 
-            // Display the metrics in a 2-column layout
+            // 2-column layout
             metricsToShow.chunked(2).forEach { rowItems ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp) // Add spacing between items
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     rowItems.forEach { item ->
-                        // Use weight to make columns equal width
                         Box(modifier = Modifier.weight(1f)) {
                             item()
                         }
                     }
-                    // If there's only one item in the chunk, add a spacer to fill the row
                     if (rowItems.size == 1) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
