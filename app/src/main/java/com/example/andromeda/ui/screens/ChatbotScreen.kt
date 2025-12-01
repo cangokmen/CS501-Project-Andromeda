@@ -1,6 +1,15 @@
 package com.example.andromeda.ui.screens
 
+import android.Manifest
 import android.app.Application
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +26,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,17 +35,23 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.andromeda.viewmodels.ChatMessage
 import com.example.andromeda.viewmodels.ChatbotViewModel
+import java.util.Locale
 
 @Composable
 fun ChatbotScreen(
@@ -45,8 +61,82 @@ fun ChatbotScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
+    val context = LocalContext.current
 
-    // Scroll to the bottom when a new message appears
+    // --- Speech recognizer state ---
+    val speechRecognizer = remember {
+        if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            SpeechRecognizer.createSpeechRecognizer(context)
+        } else {
+            null
+        }
+    }
+
+    var isListening by remember { mutableStateOf(false) }
+    var hasAudioPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasAudioPermission = granted
+        if (granted) {
+            // Start listening right after permission is granted
+            startListening(
+                speechRecognizer = speechRecognizer,
+                onResultText = viewModel::onUserInputChange,
+                onListeningChanged = { isListening = it }
+            )
+        }
+    }
+
+    // Configure recognition listener once
+    LaunchedEffect(speechRecognizer) {
+        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                isListening = true
+            }
+
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {}
+
+            override fun onError(error: Int) {
+                isListening = false
+            }
+
+            override fun onResults(results: Bundle?) {
+                val text = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()
+
+                if (!text.isNullOrBlank()) {
+                    // Put recognized text into the input field
+                    viewModel.onUserInputChange(text)
+                }
+                isListening = false
+            }
+
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+    }
+
+    // Release speech recognizer when composable leaves composition
+    DisposableEffect(Unit) {
+        onDispose {
+            speechRecognizer?.destroy()
+        }
+    }
+
+    // Scroll to bottom when new message appears
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
@@ -58,7 +148,19 @@ fun ChatbotScreen(
             UserInputBar(
                 userInput = uiState.userInput,
                 onUserInputChange = viewModel::onUserInputChange,
-                onSendMessage = viewModel::sendMessage
+                onSendMessage = viewModel::sendMessage,
+                onMicClicked = {
+                    if (!hasAudioPermission) {
+                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    } else {
+                        startListening(
+                            speechRecognizer = speechRecognizer,
+                            onResultText = viewModel::onUserInputChange,
+                            onListeningChanged = { isListening = it }
+                        )
+                    }
+                },
+                isListening = isListening
             )
         }
     ) { paddingValues ->
@@ -77,6 +179,27 @@ fun ChatbotScreen(
     }
 }
 
+// Helper to start listening
+private fun startListening(
+    speechRecognizer: SpeechRecognizer?,
+    onResultText: (String) -> Unit,
+    onListeningChanged: (Boolean) -> Unit
+) {
+    if (speechRecognizer == null) return
+
+    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+        )
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+    }
+
+    onListeningChanged(true)
+    speechRecognizer.startListening(intent)
+}
+
 @Composable
 fun MessageBubble(message: ChatMessage) {
     Row(
@@ -85,7 +208,7 @@ fun MessageBubble(message: ChatMessage) {
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.8f) // Max width for a bubble
+                .fillMaxWidth(0.8f)
                 .clip(
                     RoundedCornerShape(
                         topStart = 16.dp,
@@ -94,7 +217,6 @@ fun MessageBubble(message: ChatMessage) {
                         bottomEnd = if (message.isFromUser) 0.dp else 16.dp
                     )
                 )
-                // --- START: MODIFICATION FOR GREEN CHAT BUBBLES ---
                 .background(
                     if (message.isFromUser) MaterialTheme.colorScheme.primaryContainer
                     else MaterialTheme.colorScheme.secondaryContainer
@@ -106,12 +228,12 @@ fun MessageBubble(message: ChatMessage) {
             } else {
                 Text(
                     text = message.text,
-                    // Use the correct "on" color to ensure text is readable
-                    color = if (message.isFromUser) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSecondaryContainer
+                    color = if (message.isFromUser)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
-            // --- END: MODIFICATION FOR GREEN CHAT BUBBLES ---
         }
     }
 }
@@ -120,7 +242,9 @@ fun MessageBubble(message: ChatMessage) {
 fun UserInputBar(
     userInput: String,
     onUserInputChange: (String) -> Unit,
-    onSendMessage: () -> Unit
+    onSendMessage: () -> Unit,
+    onMicClicked: () -> Unit,
+    isListening: Boolean
 ) {
     Row(
         modifier = Modifier
@@ -132,14 +256,27 @@ fun UserInputBar(
             value = userInput,
             onValueChange = onUserInputChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Type a message...") },
+            placeholder = { Text(if (isListening) "Listening..." else "Type a message...") },
             shape = RoundedCornerShape(24.dp)
         )
+
+        // Mic button
+        IconButton(onClick = onMicClicked) {
+            Icon(
+                imageVector = Icons.Filled.Mic,
+                contentDescription = if (isListening) "Listening…" else "Voice input",
+                tint = if (isListening)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        // Send button
         IconButton(onClick = onSendMessage, enabled = userInput.isNotBlank()) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Send,
                 contentDescription = "Send Message",
-                // Make the send icon green to match
                 tint = MaterialTheme.colorScheme.primary
             )
         }

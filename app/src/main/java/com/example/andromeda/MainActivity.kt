@@ -51,7 +51,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            // The MainApp composable now correctly calls your new theme
             MainApp()
         }
     }
@@ -219,7 +218,7 @@ fun MainApp(
                                 restoreState = true
                             }
                         },
-                        // Set the background color of the button to your theme's secondary color
+                        // Set the background color of the button to theme's secondary color
                         containerColor = MaterialTheme.colorScheme.secondary,
                         // Set the icon color to be readable on the secondary color
                         contentColor = MaterialTheme.colorScheme.onSecondary
