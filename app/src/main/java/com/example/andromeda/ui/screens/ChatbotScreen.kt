@@ -1,41 +1,59 @@
 package com.example.andromeda.ui.screens
 
+import android.Manifest
+import android.app.Activity
 import android.app.Application
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.andromeda.viewmodels.ChatMessage
 import com.example.andromeda.viewmodels.ChatbotViewModel
+import java.util.Locale
+
+@Composable
+fun rememberSpeechRecognizer(
+    onResult: (String) -> Unit
+): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data: Intent? = result.data
+            val results = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            onResult(results?.get(0) ?: "")
+        }
+    }
+
+    return {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now...")
+        }
+        launcher.launch(intent)
+    }
+}
 
 @Composable
 fun ChatbotScreen(
@@ -45,6 +63,31 @@ fun ChatbotScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+
+    val speechRecognizerLauncher = rememberSpeechRecognizer { spokenText ->
+        viewModel.onUserInputChange(uiState.userInput + spokenText)
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            speechRecognizerLauncher()
+        }
+    }
+
+    val onMicClick = {
+        when (PackageManager.PERMISSION_GRANTED) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) -> {
+                speechRecognizerLauncher()
+            }
+            else -> {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
 
     // Scroll to the bottom when a new message appears
     LaunchedEffect(uiState.messages.size) {
@@ -58,7 +101,8 @@ fun ChatbotScreen(
             UserInputBar(
                 userInput = uiState.userInput,
                 onUserInputChange = viewModel::onUserInputChange,
-                onSendMessage = viewModel::sendMessage
+                onSendMessage = viewModel::sendMessage,
+                onMicClick = onMicClick
             )
         }
     ) { paddingValues ->
@@ -94,7 +138,6 @@ fun MessageBubble(message: ChatMessage) {
                         bottomEnd = if (message.isFromUser) 0.dp else 16.dp
                     )
                 )
-                // --- START: MODIFICATION FOR GREEN CHAT BUBBLES ---
                 .background(
                     if (message.isFromUser) MaterialTheme.colorScheme.primaryContainer
                     else MaterialTheme.colorScheme.secondaryContainer
@@ -106,12 +149,10 @@ fun MessageBubble(message: ChatMessage) {
             } else {
                 Text(
                     text = message.text,
-                    // Use the correct "on" color to ensure text is readable
                     color = if (message.isFromUser) MaterialTheme.colorScheme.onPrimaryContainer
                     else MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
-            // --- END: MODIFICATION FOR GREEN CHAT BUBBLES ---
         }
     }
 }
@@ -120,7 +161,8 @@ fun MessageBubble(message: ChatMessage) {
 fun UserInputBar(
     userInput: String,
     onUserInputChange: (String) -> Unit,
-    onSendMessage: () -> Unit
+    onSendMessage: () -> Unit,
+    onMicClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -132,14 +174,21 @@ fun UserInputBar(
             value = userInput,
             onValueChange = onUserInputChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Type a message...") },
-            shape = RoundedCornerShape(24.dp)
+            placeholder = { Text("Type or speak a message...") },
+            shape = RoundedCornerShape(24.dp),
+            trailingIcon = {
+                IconButton(onClick = onMicClick) {
+                    Icon(
+                        imageVector = Icons.Default.Call,
+                        contentDescription = "Voice Input"
+                    )
+                }
+            }
         )
         IconButton(onClick = onSendMessage, enabled = userInput.isNotBlank()) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Send,
                 contentDescription = "Send Message",
-                // Make the send icon green to match
                 tint = MaterialTheme.colorScheme.primary
             )
         }
