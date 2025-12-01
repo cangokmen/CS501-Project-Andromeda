@@ -2,7 +2,6 @@ package com.example.andromeda.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.core.copy
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -40,6 +39,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,30 +48,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.andromeda.R
+import com.example.andromeda.data.UserPreferencesRepository
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
 import com.example.andromeda.ui.theme.AndromedaTheme
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlin.text.toBigDecimal
+import java.io.InputStreamReader
 import java.math.RoundingMode
-import com.example.andromeda.R // Import your project's R file
-import com.google.gson.Gson // Import Gson
-import com.google.gson.reflect.TypeToken // Import TypeToken
-import kotlinx.coroutines.launch
-import java.io.InputStreamReader // Import InputStreamReader
 
 data class SettingItem(
     val title: String,
     val icon: ImageVector,
     val onClick: () -> Unit
 )
-
 
 enum class ScreenState {
     Main, Account, Preferences, Accessibility, QuestionManagement
@@ -85,7 +83,8 @@ fun SettingsScreen(
     useBiggerText: Boolean = false,
     onSetTextSize: (Boolean) -> Unit = {},
     selectedQuestions: Set<String> = setOf(),
-    onSetQuestions: (Set<String>) -> Unit = {}
+    onSetQuestions: (Set<String>) -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     var screenState by remember { mutableStateOf(ScreenState.Main) }
 
@@ -134,17 +133,24 @@ fun SettingsScreen(
                     }
                 }
             }
-            ScreenState.Account -> AccountSettings(onBackClicked = { screenState = ScreenState.Main })
+
+            ScreenState.Account -> AccountSettings(
+                onBackClicked = { screenState = ScreenState.Main },
+                onLogoutClicked = onLogout
+            )
+
             ScreenState.Preferences -> PreferencesSettings(
                 onBackClicked = { screenState = ScreenState.Main },
                 isDarkTheme = isDarkTheme,
                 onSetTheme = onSetTheme
             )
+
             ScreenState.Accessibility -> AccessibilitySettings(
                 onBackClicked = { screenState = ScreenState.Main },
                 useBiggerText = useBiggerText,
                 onSetTextSize = onSetTextSize
             )
+
             ScreenState.QuestionManagement -> QuestionManagementScreen(
                 onBackClicked = { screenState = ScreenState.Main },
                 selectedQuestions = selectedQuestions,
@@ -154,42 +160,62 @@ fun SettingsScreen(
     }
 }
 
-
 @Composable
-fun AccountSettings(onBackClicked: () -> Unit) {
-    var name by remember { mutableStateOf("John") }
-    var lastName by remember { mutableStateOf("Doe") }
-    var age by remember { mutableStateOf("30") }
-    var targetWeight by remember { mutableStateOf("180") }
+fun AccountSettings(
+    onBackClicked: () -> Unit,
+    onLogoutClicked: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val repository = remember { WellnessDataRepository(context) }
+    val userPrefs = remember { UserPreferencesRepository(context) }
+
+    var name by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var age by remember { mutableStateOf("") }
+    var targetWeight by remember { mutableStateOf("") }
     var isEditing by remember { mutableStateOf(false) }
 
     var showResetDialog by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val repository = remember { WellnessDataRepository(context) }
 
-    // --- UPDATED: Function to seed data from JSON file ---
+    // Load current user's name + profile from DataStore
+    LaunchedEffect(Unit) {
+        val email = userPrefs.userEmail.first()
+        val storedName = userPrefs.userName.first()
+        if (storedName != null) {
+            name = storedName
+        }
+        if (email != null) {
+            val profile = userPrefs.getAccountProfile(email)
+            lastName = profile.lastName
+            age = profile.age
+            targetWeight = profile.targetWeight
+        }
+    }
+
+    // --- Seed sample wellness data from JSON for this user ---
     val seedData: () -> Unit = {
         coroutineScope.launch {
-            // Clear existing data to avoid duplicates
-            repository.clearAllData()
+            val email = userPrefs.userEmail.first() ?: return@launch
 
-            // Read the JSON file from the raw resources folder
-            val inputStream = context.resources.openRawResource(R.raw.sample_wellness_data) // Corrected line
+            val inputStream = context.resources.openRawResource(R.raw.sample_wellness_data)
             val reader = InputStreamReader(inputStream)
             val listType = object : TypeToken<List<WellnessData>>() {}.type
             val dataToSeed: List<WellnessData> = Gson().fromJson(reader, listType)
 
-
             dataToSeed.forEach { data ->
-                // Round weight to one decimal place for consistency
-                val roundedWeight = data.weight?.toBigDecimal()?.setScale(1, RoundingMode.HALF_UP)?.toDouble()
+                val roundedWeight = data.weight
+                    ?.toBigDecimal()
+                    ?.setScale(1, RoundingMode.HALF_UP)
+                    ?.toDouble()
 
-                // Only add the data if the roundedWeight is not null
                 if (roundedWeight != null) {
-                    repository.addWellnessData(data.copy(weight = roundedWeight))
-                } else {
-                    // do nothing, weight cant be null
+                    repository.addWellnessData(
+                        data.copy(
+                            weight = roundedWeight,
+                            userEmail = email // make sure data belongs to this account
+                        )
+                    )
                 }
             }
         }
@@ -208,7 +234,9 @@ fun AccountSettings(onBackClicked: () -> Unit) {
                         }
                         showResetDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
                     Text("Reset")
                 }
@@ -236,46 +264,94 @@ fun AccountSettings(onBackClicked: () -> Unit) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
             Text("Account Details", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Button(onClick = { isEditing = !isEditing }) {
+            Button(onClick = {
+                if (isEditing) {
+                    // Save profile for this account
+                    coroutineScope.launch {
+                        val email = userPrefs.userEmail.first()
+                        if (email != null) {
+                            userPrefs.saveAccountProfile(
+                                email = email,
+                                lastName = lastName,
+                                age = age,
+                                targetWeight = targetWeight
+                            )
+                        }
+                    }
+                }
+                isEditing = !isEditing
+            }) {
                 Text(if (isEditing) "Save" else "Edit")
             }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Name from registration (read-only)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            InfoRow(label = "Name:", value = name)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (isEditing) {
+            // User can manually enter these
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Last Name") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = age, onValueChange = { age = it }, label = { Text("Age") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = targetWeight, onValueChange = { targetWeight = it }, label = { Text("Target Weight (lbs)") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = lastName,
+                    onValueChange = { lastName = it },
+                    label = { Text("Last Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = age,
+                    onValueChange = { age = it },
+                    label = { Text("Age") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = targetWeight,
+                    onValueChange = { targetWeight = it },
+                    label = { Text("Target Weight (lbs)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         } else {
+            // Read-only view
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                InfoRow(label = "Name:", value = name)
                 InfoRow(label = "Last Name:", value = lastName)
                 InfoRow(label = "Age:", value = age)
-                InfoRow(label = "Target Weight:", value = "$targetWeight lbs")
+                InfoRow(
+                    label = "Target Weight:",
+                    value = if (targetWeight.isNotBlank()) "$targetWeight lbs" else ""
+                )
             }
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // --- Button to manually seed the data remains the same ---
+        //  seeds wellness data from JSON
         Button(
             onClick = { seedData() },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            )
         ) {
             Text("ADD MANUAL DATA", color = MaterialTheme.colorScheme.onSecondaryContainer)
         }
@@ -285,13 +361,26 @@ fun AccountSettings(onBackClicked: () -> Unit) {
         Button(
             onClick = { showResetDialog = true },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            )
         ) {
             Text("RESET APP DATA", color = MaterialTheme.colorScheme.onErrorContainer)
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = onLogoutClicked,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text("LOG OUT", color = MaterialTheme.colorScheme.onPrimary)
+        }
     }
 }
-
 
 @Composable
 fun PreferencesSettings(
@@ -328,21 +417,18 @@ fun PreferencesSettings(
             Spacer(modifier = Modifier.height(16.dp))
 
             themes.forEach { theme ->
-                val selected = (theme == "Dark" && isDarkTheme) || (theme == "Light" && !isDarkTheme)
+                val selected =
+                    (theme == "Dark" && isDarkTheme) || (theme == "Light" && !isDarkTheme)
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            onSetTheme(theme == "Dark")
-                        }
+                        .clickable { onSetTheme(theme == "Dark") }
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(
                         selected = selected,
-                        onClick = {
-                            onSetTheme(theme == "Dark")
-                        }
+                        onClick = { onSetTheme(theme == "Dark") }
                     )
                     Text(text = theme, modifier = Modifier.padding(start = 8.dp))
                 }
@@ -350,7 +436,6 @@ fun PreferencesSettings(
         }
     }
 }
-
 
 @Composable
 private fun InfoRow(label: String, value: String) {
@@ -399,7 +484,8 @@ fun AccessibilitySettings(
             Spacer(modifier = Modifier.height(16.dp))
 
             textSizes.forEach { size ->
-                val selected = (size == "Bigger" && useBiggerText) || (size == "Normal" && !useBiggerText)
+                val selected =
+                    (size == "Bigger" && useBiggerText) || (size == "Normal" && !useBiggerText)
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -424,7 +510,6 @@ fun QuestionManagementScreen(
     selectedQuestions: Set<String>,
     onSetQuestions: (Set<String>) -> Unit
 ) {
-    // Map of question keys to their display names
     val allQuestions = mapOf(
         "DIET" to "Diet Rating",
         "ACTIVITY" to "Activity Rating",
@@ -462,7 +547,7 @@ fun QuestionManagementScreen(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            allQuestions.forEach { (key, name) ->
+            allQuestions.forEach { (key, nameLabel) ->
                 val isChecked = key in selectedQuestions
                 val isEnabled = isChecked || selectedQuestions.size < 3
 
@@ -494,7 +579,7 @@ fun QuestionManagementScreen(
                         },
                         enabled = isEnabled
                     )
-                    Text(text = name, modifier = Modifier.padding(start = 8.dp))
+                    Text(text = nameLabel, modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }

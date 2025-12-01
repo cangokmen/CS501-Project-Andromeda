@@ -39,14 +39,37 @@ import com.example.andromeda.viewmodels.HomeViewModel
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory(LocalContext.current.applicationContext as Application))
+    currentUserEmail: String?,   // gets passed from AppNavHost
+    viewModel: HomeViewModel = viewModel(
+        factory = HomeViewModel.Factory(LocalContext.current.applicationContext as Application)
+    )
 ) {
     val context = LocalContext.current
     val repository = remember { WellnessDataRepository(context) }
     val allWellnessData by repository.allWellnessData.collectAsState(initial = emptyList())
     val uiState by viewModel.uiState.collectAsState()
 
-    // Automatically generate suggestions when the screen is first composed
+    // 1) Filter to current user
+    val visibleData = remember(allWellnessData, currentUserEmail) {
+        if (currentUserEmail.isNullOrBlank()) {
+            allWellnessData
+        } else {
+            allWellnessData.filter { it.userEmail == currentUserEmail }
+        }
+    }
+
+    // 2) Collapse multiple entries on the same date -> keep latest per day
+    val dailyData = remember(visibleData) {
+        visibleData
+            .groupBy { it.timestamp.take(10) }   // yyyy-MM-dd
+            .map { (_, list) ->
+                // same as HistoryScreen: use the last item in insertion order
+                list.last()
+            }
+            .sortedBy { it.timestamp }           // oldest → newest
+    }
+
+    // Suggestions
     LaunchedEffect(Unit) {
         viewModel.generateSuggestions()
     }
@@ -55,7 +78,6 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        // This arrangement is for the top-level elements (Title, Chart, Suggestions Block)
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
@@ -63,16 +85,15 @@ fun HomeScreen(
             style = MaterialTheme.typography.headlineMedium,
         )
 
-        if (allWellnessData.isEmpty()) {
+        if (dailyData.isEmpty()) {
             Text("No wellness data has been saved yet.")
         } else {
-            // Chart with a title
             Text(
-                "30-Day Weight Trend",
+                "14-Day Weight Trend",
                 style = MaterialTheme.typography.titleMedium,
             )
             WeightLineChart(
-                data = allWellnessData,
+                data = dailyData,      //use per-day-latest data
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp)
@@ -80,12 +101,11 @@ fun HomeScreen(
         }
 
         // --- Suggestions Section ---
-        // The outer Column will now center the content within the remaining space.
         Column(
             modifier = Modifier
-                .fillMaxSize(), // Fill the remaining space
-            verticalArrangement = Arrangement.Center, // Center content vertically
-            horizontalAlignment = Alignment.CenterHorizontally // Center content horizontally
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             when {
                 uiState.isLoading -> {
@@ -97,7 +117,6 @@ fun HomeScreen(
                 }
 
                 else -> {
-                    // This inner column will hold the cards together
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         uiState.suggestions.forEach { suggestion ->
                             Card(
@@ -117,16 +136,17 @@ fun HomeScreen(
         }
     }
 }
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun WeightLineChart(
     data: List<WellnessData>,
     modifier: Modifier = Modifier
 ) {
-    // Build rolling 30-day series, sorted oldest → newest
+    // Build rolling 14-day series, sorted oldest → newest
     val recentSorted = remember(data) {
         val today = java.time.LocalDate.now()
-        val cutoff = today.minusDays(30)
+        val cutoff = today.minusDays(14)
         data.mapNotNull { wd ->
             val d = runCatching { java.time.LocalDate.parse(wd.timestamp.take(10)) }.getOrNull()
             d?.let { Triple(wd.weight, it, wd.timestamp) } // (weight, dateOnly, rawTs)
@@ -142,7 +162,6 @@ fun WeightLineChart(
     }
     val n = weights.size
 
-    // Theme-aware colors and text sizes
     val axisColor = MaterialTheme.colorScheme.onSurface
     val gridColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     val lineColor = MaterialTheme.colorScheme.primary
@@ -152,7 +171,6 @@ fun WeightLineChart(
     val textSizeX = with(density) { 13.sp.toPx() }
 
     Canvas(modifier = modifier) {
-        // generous padding
         val paddingLeft = 110f
         val paddingBottom = 72f
         val paddingTop = 44f
@@ -174,7 +192,6 @@ fun WeightLineChart(
 
         val originY = size.height - paddingBottom
 
-        // optional horizontal grid lines (match Y ticks)
         val ySteps = 3
         for (i in 0..ySteps) {
             val y = paddingTop + (1 - (i / ySteps.toFloat())) * h
@@ -187,17 +204,20 @@ fun WeightLineChart(
         }
 
         // axes
-        drawLine(axisColor,
+        drawLine(
+            axisColor,
             Offset(paddingLeft, paddingTop),
             Offset(paddingLeft, originY),
-            strokeWidth = 2f)
+            strokeWidth = 2f
+        )
 
-        drawLine(axisColor,
+        drawLine(
+            axisColor,
             Offset(paddingLeft, originY),
             Offset(size.width - paddingRight, originY),
-            strokeWidth = 2f)
+            strokeWidth = 2f
+        )
 
-        // paints for text
         val paintY = android.graphics.Paint().apply {
             color = axisColor.toArgb()
             textSize = textSizeY
@@ -209,7 +229,7 @@ fun WeightLineChart(
             isAntiAlias = true
         }
 
-        // Y ticks/labels
+        // Y ticks
         for (i in 0..ySteps) {
             val value = min + (i / ySteps.toDouble()) * range
             val y = paddingTop + (1 - (i / ySteps.toFloat())) * h
@@ -221,7 +241,7 @@ fun WeightLineChart(
             )
         }
 
-        // X labels aligned to points; avoid overlap
+        // X labels
         val maxLabels = 6
         val every = (n / maxLabels).coerceAtLeast(1)
         for (i in 0 until n step every) {
@@ -229,7 +249,12 @@ fun WeightLineChart(
             val label = datesFmt[i]
             drawLine(axisColor, Offset(x, originY), Offset(x, originY + 6f), strokeWidth = 2f)
             val tw = paintX.measureText(label)
-            drawContext.canvas.nativeCanvas.drawText(label, x - tw / 2f, originY + 42f, paintX)
+            drawContext.canvas.nativeCanvas.drawText(
+                label,
+                x - tw / 2f,
+                originY + 42f,
+                paintX
+            )
         }
 
         // line + points
@@ -245,12 +270,14 @@ fun WeightLineChart(
             "Date",
             size.width / 2 - 30f,
             size.height + 20f,
-            paintX)
+            paintX
+        )
 
         drawContext.canvas.nativeCanvas.drawText(
             "Weight (lb)",
             paddingLeft - 100f,
             paddingTop - 50f,
-            paintY )
+            paintY
+        )
     }
 }

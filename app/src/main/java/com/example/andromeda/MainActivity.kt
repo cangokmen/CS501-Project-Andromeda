@@ -1,20 +1,20 @@
 package com.example.andromeda
 
 import android.app.Application
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-// Add this import for the chat icon
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
-// Add this import for the FloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBarItem
@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -53,14 +54,21 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ViewModel and data class definitions remain unchanged...
 class MainViewModel(private val userPreferencesRepository: UserPreferencesRepository) :
     ViewModel() {
+
     val isDarkTheme: StateFlow<Boolean> = userPreferencesRepository.isDarkTheme
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = false
+        )
+
+    val userEmail: StateFlow<String?> = userPreferencesRepository.userEmail
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
         )
 
     val useBiggerText: StateFlow<Boolean> = userPreferencesRepository.useBiggerText
@@ -74,7 +82,15 @@ class MainViewModel(private val userPreferencesRepository: UserPreferencesReposi
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = setOf("DIET", "ACTIVITY", "SLEEP") // Default initial value
+            initialValue = setOf("DIET", "ACTIVITY", "SLEEP")
+        )
+
+    // login state
+    val isLoggedIn: StateFlow<Boolean> = userPreferencesRepository.isLoggedIn
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
         )
 
     fun setTheme(isDark: Boolean) {
@@ -94,6 +110,11 @@ class MainViewModel(private val userPreferencesRepository: UserPreferencesReposi
             userPreferencesRepository.saveSelectedQuestions(questions)
         }
     }
+    fun logout() {
+        viewModelScope.launch {
+            userPreferencesRepository.logoutUser()
+        }
+    }
 
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -106,24 +127,30 @@ class MainViewModel(private val userPreferencesRepository: UserPreferencesReposi
     }
 }
 
-
 data class BottomNavItem(
     val label: String,
     val icon: ImageVector,
     val route: String
 )
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MainApp(
-    viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory(LocalContext.current.applicationContext as Application))
+    viewModel: MainViewModel = viewModel(
+        factory = MainViewModel.Factory(
+            LocalContext.current.applicationContext as Application
+        )
+    )
 ) {
     val useDarkTheme by viewModel.isDarkTheme.collectAsState()
     val useBiggerText by viewModel.useBiggerText.collectAsState()
     val selectedQuestions by viewModel.selectedQuestions.collectAsState()
+    val currentUserEmail by viewModel.userEmail.collectAsState()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-
 
     val navItems = listOf(
         BottomNavItem("Home", Icons.Default.Home, Screen.Home.route),
@@ -140,43 +167,44 @@ fun MainApp(
     ) {
         Scaffold(
             bottomBar = {
-                BottomAppBar {
-                    val currentDestination = navBackStackEntry?.destination
-                    navItems.forEach { item ->
-                        NavigationBarItem(
-                            selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
-                            onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                //Hide bottom bar on Login screen
+                if (currentRoute != Screen.Login.route) {
+                    BottomAppBar {
+                        val currentDestination = navBackStackEntry?.destination
+                        navItems.forEach { item ->
+                            NavigationBarItem(
+                                selected = currentDestination?.hierarchy
+                                    ?.any { it.route == item.route } == true,
+                                onClick = {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) }
-                        )
+                                },
+                                icon = { Icon(item.icon, contentDescription = item.label) },
+                                label = { Text(item.label) }
+                            )
+                        }
                     }
                 }
             },
             floatingActionButton = {
-                if (currentRoute != Screen.Chatbot.route) {
+                // Hide FAB on Login screen
+                if (currentRoute != Screen.Chatbot.route &&
+                    currentRoute != Screen.Login.route
+                ) {
                     FloatingActionButton(
                         onClick = {
-                            // --- MODIFICATION START ---
-                            // Use the same navigation logic as the BottomAppBar
                             navController.navigate(Screen.Chatbot.route) {
-                                // This ensures that if the user is on a main screen (like Home)
-                                // and navigates to Chatbot, pressing back will correctly
-                                // return them to Home with the navigation state preserved.
                                 popUpTo(navController.graph.findStartDestination().id) {
                                     saveState = true
                                 }
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                            // --- MODIFICATION END ---
                         }
                     ) {
                         Icon(
@@ -195,7 +223,18 @@ fun MainApp(
                 useBiggerText = useBiggerText,
                 onSetTextSize = viewModel::setTextSize,
                 selectedQuestions = selectedQuestions,
-                onSetQuestions = viewModel::setQuestions
+                onSetQuestions = viewModel::setQuestions,
+                isLoggedIn = isLoggedIn,
+                currentUserEmail = currentUserEmail,
+                onLogout = {
+                    viewModel.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            inclusive = true
+                        }
+                        launchSingleTop = true
+                    }
+                }
             )
         }
     }

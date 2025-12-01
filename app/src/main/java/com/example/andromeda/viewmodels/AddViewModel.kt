@@ -25,7 +25,8 @@ data class AddScreenUiState(
 
 class AddViewModel(
     private val repository: WellnessDataRepository,
-    private val selectedQuestions: Set<String>
+    private val selectedQuestions: Set<String>,
+    private val currentUserEmail: String?
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AddScreenUiState())
     val uiState: StateFlow<AddScreenUiState> = _uiState.asStateFlow()
@@ -60,6 +61,7 @@ class AddViewModel(
         if (weightValue != null) {
             viewModelScope.launch {
                 val entryToSave = WellnessData(
+                    userEmail = currentUserEmail,
                     weight = weightValue,
                     dietRating = if ("DIET" in selectedQuestions) currentUiState.dietRating.roundToInt() else null,
                     activityLevel = if ("ACTIVITY" in selectedQuestions) currentUiState.activityRating.roundToInt() else null,
@@ -90,14 +92,16 @@ class AddViewModel(
 
     class Factory(
         private val application: Application,
-        private val selectedQuestions: Set<String>
+        private val selectedQuestions: Set<String>,
+        private val currentUserEmail: String?
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(AddViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
                 return AddViewModel(
                     repository = WellnessDataRepository(application),
-                    selectedQuestions = selectedQuestions
+                    selectedQuestions = selectedQuestions,
+                    currentUserEmail = currentUserEmail
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

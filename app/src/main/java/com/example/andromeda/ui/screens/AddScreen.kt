@@ -25,11 +25,13 @@ import kotlin.math.roundToInt
 @Composable
 fun AddScreen(
     selectedQuestions: Set<String>,
+    currentUserEmail: String?,
     viewModel: AddViewModel = viewModel(
-        key = selectedQuestions.toString(),
+        key = selectedQuestions.toString() + (currentUserEmail ?: ""),
         factory = AddViewModel.Factory(
             LocalContext.current.applicationContext as Application,
-            selectedQuestions
+            selectedQuestions,
+            currentUserEmail
         )
     )
 ) {
@@ -167,6 +169,8 @@ private fun WellnessRatingSlider(
 fun AddScreenPreview() {
     AndromedaTheme(darkTheme = false){
         // Example: If only these 3 are selected, they will be numbered Q1, Q2, Q3
-        AddScreen(selectedQuestions = setOf("DIET", "SLEEP", "WATER"))
+        AddScreen(selectedQuestions = setOf("DIET", "SLEEP", "WATER"),
+            currentUserEmail = null)
+
     }
 }

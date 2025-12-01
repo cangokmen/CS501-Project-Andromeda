@@ -7,6 +7,7 @@ import java.util.Locale
 private val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
 data class WellnessData(
+    val userEmail: String? = null,
     val timestamp: String = formatter.format(Calendar.getInstance().time),
     val sleepHours: Int?, // Make nullable
     val activityLevel: Int?, // Make nullable
