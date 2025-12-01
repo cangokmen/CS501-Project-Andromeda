@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.painterResource
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -225,7 +226,7 @@ fun MainApp(
                         contentColor = MaterialTheme.colorScheme.onSecondary
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Person,
+                            painter = painterResource(id = R.drawable.galaxy),
                             contentDescription = "Open Chatbot"
                         )
                     }

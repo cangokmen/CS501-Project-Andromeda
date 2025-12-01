@@ -29,6 +29,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.andromeda.viewmodels.ChatMessage
 import com.example.andromeda.viewmodels.ChatbotViewModel
 import java.util.Locale
+import androidx.compose.ui.res.painterResource
+import com.example.andromeda.R
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun rememberSpeechRecognizer(
@@ -54,6 +61,7 @@ fun rememberSpeechRecognizer(
         launcher.launch(intent)
     }
 }
+
 
 @Composable
 fun ChatbotScreen(
@@ -106,16 +114,36 @@ fun ChatbotScreen(
             )
         }
     ) { paddingValues ->
-        LazyColumn(
-            state = listState,
+        // Use a Column to stack the logo and the message list
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            items(uiState.messages) { message ->
-                MessageBubble(message = message)
+            // === LOGO ADDED HERE ===
+            Image(
+                painter = painterResource(id = R.drawable.galaxy),
+                contentDescription = "Andromeda Logo",
+                modifier = Modifier
+                    .size(80.dp) // Adjust size as needed
+                    .padding(top = 16.dp),
+                contentScale = ContentScale.Fit,
+                // Apply a dark green tint
+                colorFilter = ColorFilter.tint(Color(0xFF004D40)) // DarkGreen
+            )
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f), // Allow the list to take remaining space
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(uiState.messages) { message ->
+                    MessageBubble(message = message)
+                }
             }
         }
     }
@@ -179,7 +207,8 @@ fun UserInputBar(
             trailingIcon = {
                 IconButton(onClick = onMicClick) {
                     Icon(
-                        imageVector = Icons.Default.Call,
+                        // Use painterResource to load your PNG
+                        painter = painterResource(id = R.drawable.mic),
                         contentDescription = "Voice Input"
                     )
                 }
