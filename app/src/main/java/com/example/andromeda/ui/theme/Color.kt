@@ -1,11 +1,13 @@
+
 package com.example.andromeda.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
-
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val DarkGreen = Color(0xFF004D40)
+val MediumGreen = Color(0xFF00796B)
+val LightGreen = Color(0xFFB2DFDB)
+val MutedGreen = Color(0xFF80CBC4)
+val DarkerText = Color(0xFF00251A)
+val OnLightGreen = Color(0xFF003737)
+val White = Color(0xFFFFFFFF)
+val Black = Color(0xFF000000)
