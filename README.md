@@ -19,6 +19,23 @@ Andromeda is a modern Android application for personal wellness tracking. It let
 - **AI Chatbot**: Ask wellness-related questions through a chatbot powered by the Gemini API.
 - **Voice Input**: Optional speech-to-text support for the chatbot input (requires a physical Android device).
 
+
+## ✨ Features List + Status
+  | Feature                     | Status     |
+| --------------------------- | ---------- |
+| Login / Logout              | ✔          |
+| Store wellness data per day | ✔          |
+| Merge same-day entries      | ✔          |
+| 14-day dynamic graph        | ✔          |
+| Settings (theme, questions) | ✔          |
+| Speech-to-text              | ✔          |
+| Gemini chatbot              | ✔          |
+| Multi-user data isolation   | ✔          |
+| Data reset                  | ✔          |
+| Seed demo data              | ✔          |
+| Cloud sync                  | ✘ descoped |
+
+
 ## 🛠️ Build and Run Instructions
 
 To build and run the Andromeda project, you will need Android Studio.
