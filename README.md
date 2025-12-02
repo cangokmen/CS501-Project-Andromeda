@@ -1,26 +1,29 @@
 # Andromeda - Wellness Tracker
 
-Andromeda is a modern Android application for personal wellness tracking. It lets users log daily metrics such as weight, diet, activity, and sleep, and view their progress over time. The app is built entirely with Jetpack Compose and follows current Android development best practices, including an MVVM architecture.
+Andromeda is a modern Android application for personal wellness tracking. It lets users log daily metrics such as weight, diet, activity, and sleep, view historical trends, manage their account profile, and interact with an integrated AI chatbot. The app is built entirely with Jetpack Compose and follows current Android development best practices, including an MVVM architecture.
 
 ## ✨ Features
 
-- **Daily Logging**: Easily add daily entries for weight and other wellness metrics.
-- **Dynamic Questions**: The Add screen dynamically updates to show only the questions the user has selected to track.
-- **Historical View**: A scrollable history screen that displays all past entries, showing only the data that was recorded on that day.
+- **Daily Logging**: Add daily entries for weight and wellness metrics. Each day contains one entry, and new inputs update that day's record.
+- **Account System**: Register and log in using email + password. Each account has its own wellness data and preferences.
+- **Profile Management**: Edit last name, age, and target weight. First name is taken from registration.
+- **Dynamic Questions**: The Add screen shows only the selected wellness questions (up to 3).
+- **Historical View**: A clear history screen that displays past entries, filtered by logged-in user.
 - **Customizable Experience**:
-  - **Theme**: Switch between light and dark themes.
-  - **Text Size**: Choose between normal and larger text sizes for better accessibility.
-  - **Question Management**: Select up to three wellness questions to track from a list of options.
+  - **Theme**: Light/Dark mode.
+  - **Text Size**: Normal or larger text.
+  - **Question Management**: Track up to three wellness metrics.
 - **Data Management**:
-  - **Reset Data**: Clear all saved wellness history from the settings screen.
-  - **Seed Data**: A developer focused feature to populate the app with predefined historical data for testing and demos.
+  - **Reset Data**: Clear all stored wellness entries.
+  - **Seed Data**: Developer-only tool to add sample data for testing.
+- **AI Chatbot**: Integrated Gemini-powered wellness chatbot.
+- **Voice Input**: Speech-to-text support in the chatbot input bar (requires a physical Android device).
 
 ## 🛠️ Build and Run Instructions
 
 To build and run the Andromeda project, you will need Android Studio.
 
 1. **Clone the repository**
-
    ```bash
    git clone https://github.com/your-username/Andromeda.git
     ```
