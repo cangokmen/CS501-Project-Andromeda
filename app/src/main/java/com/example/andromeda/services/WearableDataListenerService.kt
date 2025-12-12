@@ -1,8 +1,5 @@
 package com.example.andromeda.services
 
-import androidx.compose.foundation.gestures.forEach
-import androidx.compose.ui.graphics.vector.path
-import androidx.compose.ui.input.key.type
 import com.example.andromeda.data.UserPreferencesRepository
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
@@ -15,6 +12,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class WearableDataListenerService : WearableListenerService() {
 
@@ -36,32 +36,39 @@ class WearableDataListenerService : WearableListenerService() {
         dataEvents.forEach { event ->
             if (event.type == DataEvent.TYPE_CHANGED && event.dataItem.uri.path == "/wellness_data") {
                 val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
-                val weight = dataMap.getInt("KEY_WEIGHT")
-                val q1 = dataMap.getInt("KEY_Q1")
-                val q2 = dataMap.getInt("KEY_Q2")
-                val q3 = dataMap.getInt("KEY_Q3")
+                println("PHONE: Received DataMap: $dataMap")
 
-                saveWellnessData(weight, q1, q2, q3)
+                serviceScope.launch {
+                    val currentUserEmail = userPrefsRepository.userEmail.first()
+                    val timestamp = dataMap.getLong("KEY_TIMESTAMP")
+
+                    // Helper function to convert 0 to null
+                    fun getNullableInt(key: String): Int? {
+                        val value = dataMap.getInt(key)
+                        return if (value == 0) null else value
+                    }
+
+                    // --- THIS BLOCK IS NOW SIMPLIFIED ---
+                    // Reconstruct the WellnessData object.
+                    // The watch now guarantees all keys (Q1-Q5) are present.
+                    val newEntry = WellnessData(
+                        userEmail = currentUserEmail,
+                        weight = dataMap.getDouble("KEY_WEIGHT"),
+                        timestamp = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(timestamp)),
+
+                        // Use the helper to convert any '0' ratings to 'null'
+                        dietRating = getNullableInt("KEY_Q1"),
+                        activityLevel = getNullableInt("KEY_Q2"),
+                        sleepHours = getNullableInt("KEY_Q3"),
+                        waterIntake = getNullableInt("KEY_Q4"),
+                        proteinIntake = getNullableInt("KEY_Q5")
+                    )
+
+                    println("PHONE: Reconstructed WellnessData: $newEntry")
+                    wellnessRepository.addWellnessData(newEntry)
+                    println("PHONE: Saved wellness data from watch to local database.")
+                }
             }
-        }
-    }
-
-    private fun saveWellnessData(weight: Int, q1: Int, q2: Int, q3: Int) {
-        serviceScope.launch {
-            // Fetch the currently logged-in user's email
-            val currentUserEmail = userPrefsRepository.userEmail.first()
-
-            val newEntry = WellnessData(
-                userEmail = currentUserEmail, // Associate data with the logged-in user
-                weight = weight.toDouble(),
-                dietRating = q1,
-                activityLevel = q2,
-                sleepHours = q3,
-                // These are null because they don't come from the watch
-                waterIntake = null,
-                proteinIntake = null
-            )
-            wellnessRepository.addWellnessData(newEntry)
         }
     }
 

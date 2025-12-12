@@ -9,7 +9,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.watch"
+        applicationId = "com.example.andromeda"
         minSdk = 30
         targetSdk = 36
         versionCode = 1
@@ -66,8 +66,6 @@ dependencies {
     // Google Play Services for data synchronization
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
-
-    implementation("androidx.wear.compose:compose-material:1.3.1")
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
 

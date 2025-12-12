@@ -143,8 +143,8 @@ private fun WellnessRatingSlider(
     label: String,
     value: Float,
     onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float> = 0f..10f,
-    steps: Int = 9
+    valueRange: ClosedFloatingPointRange<Float> = 1f..10f,
+    steps: Int = 8
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(

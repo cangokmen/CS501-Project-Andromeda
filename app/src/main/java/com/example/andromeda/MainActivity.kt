@@ -7,10 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
-import androidx.compose.animation.core.copy
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
@@ -20,6 +18,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -40,11 +40,16 @@ import com.example.andromeda.data.UserPreferencesRepository
 import com.example.andromeda.navigation.AppNavHost
 import com.example.andromeda.navigation.Screen
 import com.example.andromeda.ui.theme.AndromedaTheme
+import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.Wearable
+import com.google.gson.Gson
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import androidx.compose.ui.res.painterResource
+import kotlinx.coroutines.flow.first
+
+
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -58,8 +63,25 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-class MainViewModel(private val userPreferencesRepository: UserPreferencesRepository) :
-    ViewModel() {
+class MainViewModel(
+    private val userPreferencesRepository: UserPreferencesRepository,
+    // Add the Application parameter
+    application: Application
+) : ViewModel() {
+
+    // --- THIS IS NEW: Add the dataClient for sending data to the watch ---
+    private val dataClient by lazy { Wearable.getDataClient(application) }
+
+    init {
+        // Send the current question configuration to the watch as soon as the app starts.
+        // This ensures the watch is always in sync, even if it was offline
+        // when the settings were last changed on the phone.
+        viewModelScope.launch {
+            // Fetch the most recent value from the Flow and send it.
+            val currentQuestions = userPreferencesRepository.selectedQuestions.first()
+            sendQuestionsToWatch(currentQuestions)
+        }
+    }
 
     val isDarkTheme: StateFlow<Boolean> = userPreferencesRepository.isDarkTheme
         .stateIn(
@@ -109,22 +131,63 @@ class MainViewModel(private val userPreferencesRepository: UserPreferencesReposi
         }
     }
 
+    // --- THIS FUNCTION IS MODIFIED ---
     fun setQuestions(questions: Set<String>) {
         viewModelScope.launch {
+            // 1. Save locally
             userPreferencesRepository.saveSelectedQuestions(questions)
+            // 2. Send to the watch
+            sendQuestionsToWatch(questions)
         }
     }
+
+    // --- THIS IS THE NEW FUNCTION THAT SENDS THE DATA ---
+    private fun sendQuestionsToWatch(questions: Set<String>) {
+        viewModelScope.launch {
+            try {
+                val putDataMapRequest = PutDataMapRequest.create("/config_questions").apply {
+                    val questionsJson = Gson().toJson(questions)
+                    // --- ADD THIS LOG ---
+                    // This will print the exact JSON string being sent.
+                    println("PHONE: Sending questions to watch: $questionsJson")
+
+                    dataMap.putString("KEY_QUESTIONS_LIST", questionsJson)
+                    dataMap.putLong("KEY_TIMESTAMP", System.currentTimeMillis())
+                }
+                val putDataRequest = putDataMapRequest.asPutDataRequest().setUrgent()
+
+                dataClient.putDataItem(putDataRequest).apply {
+                    addOnSuccessListener {
+                        // Log success
+                        println("PHONE: Successfully sent /config_questions data item.")
+                    }
+                    addOnFailureListener { e ->
+                        // Log failure
+                        println("PHONE: Failed to send /config_questions data item: $e")
+                    }
+                }
+            } catch (e: Exception) {
+                println("PHONE: Error creating data item for watch: $e")
+            }
+        }
+    }
+
+
     fun logout() {
         viewModelScope.launch {
             userPreferencesRepository.logoutUser()
         }
     }
 
+    // --- THIS FACTORY IS MODIFIED to pass the Application ---
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return MainViewModel(UserPreferencesRepository(application)) as T
+                return MainViewModel(
+                    userPreferencesRepository = UserPreferencesRepository(application),
+                    application = application // Pass it here
+                ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
@@ -191,7 +254,7 @@ fun MainApp(
                             icon = { Icon(item.icon, contentDescription = item.label) },
                             label = { Text(item.label) },
                             // Define the colors for the items on the green background
-                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                            colors = NavigationBarItemDefaults.colors(
                                 // Color when tab is selected (e.g., White)
                                 selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                                 selectedTextColor = MaterialTheme.colorScheme.onPrimary,

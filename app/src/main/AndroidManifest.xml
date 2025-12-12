@@ -14,6 +14,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Andromeda">
+
+        <meta-data
+            android:name="com.google.android.wearable.beta.app"
+            android:resource="@xml/wearable_app_desc" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -34,7 +39,6 @@
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data
                     android:host="*"
-                    android:pathPrefix="/wellness_data"
                     android:scheme="wear" />
             </intent-filter>
         </service>

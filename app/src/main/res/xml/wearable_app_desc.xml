@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wearableApp package="com.example.watch"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <android:capability android:name="verify_remote_app"/>
+</wearableApp>
+    

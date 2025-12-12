@@ -4,29 +4,27 @@ import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Fastfood
+import androidx.compose.material.icons.filled.Hotel
+import androidx.compose.material.icons.filled.LocalDrink
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -38,88 +36,99 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material3.Button
-import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.example.watch.presentation.theme.AndromedaTheme
-import com.google.android.gms.wearable.DataClient
-import com.google.android.gms.wearable.DataEvent
-import com.google.android.gms.wearable.DataEventBuffer
-import com.google.android.gms.wearable.DataMap
-import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-// --- Data Layer for Watch ---
+// --- Data Models and State ---
 
-data class WatchUiState(
-    val questions: List<String> = listOf("DIET", "ACTIVITY", "SLEEP"),
-    val questionValues: Map<String, Int> = questions.associateWith { 5 }
+// Represents a single wellness category with its identifier and icon
+data class WellnessCategory(
+    val id: String,
+    val icon: ImageVector,
+    val label: String
 )
 
-class WatchViewModel(application: Application) : AndroidViewModel(application),
-    DataClient.OnDataChangedListener {
+// UI state now includes all categories and the set of selected ones
+data class WatchUiState(
+    val allCategories: List<WellnessCategory> = emptyList(),
+    val selectedCategoryIds: Set<String> = setOf("DIET", "ACTIVITY", "SLEEP"), // Default selection
+    val questionValues: Map<String, Int> = emptyMap(),
+    val currentScreen: Screen = Screen.Input // To navigate between input and settings
+)
+
+enum class Screen {
+    Input,
+    CategorySelection
+}
+
+// --- ViewModel Layer ---
+
+class WatchViewModel(application: Application) : AndroidViewModel(application) {
+
+    // --- REMOVED: All DataClient.OnDataChangedListener logic ---
+    // The ViewModel is now self-contained and doesn't listen to the phone for questions.
+
     private val _uiState = MutableStateFlow(WatchUiState())
     val uiState = _uiState.asStateFlow()
 
     private val dataClient by lazy { Wearable.getDataClient(application) }
 
+    // Define the 5 static categories directly in the ViewModel
+    private val allWellnessCategories = listOf(
+        WellnessCategory("DIET", Icons.Default.Fastfood, "Diet"),
+        WellnessCategory("ACTIVITY", Icons.Default.DirectionsRun, "Activity"),
+        WellnessCategory("SLEEP", Icons.Default.Hotel, "Sleep"),
+        WellnessCategory("WATER", Icons.Default.LocalDrink, "Water"),
+        WellnessCategory("PROTEIN", Icons.Default.Restaurant, "Protein")
+    )
+
     init {
-        dataClient.addListener(this)
-        fetchInitialConfig()
+        // Initialize the state with all categories and default values for the selected ones
+        _uiState.value = WatchUiState(
+            allCategories = allWellnessCategories,
+            questionValues = _uiState.value.selectedCategoryIds.associateWith { 5 }
+        )
     }
 
-    private fun fetchInitialConfig() {
-        viewModelScope.launch {
-            try {
-                val dataItems = dataClient.getDataItems(
-                    PutDataMapRequest.create("/config_questions").asPutDataRequest().uri
-                ).await()
-                dataItems.firstOrNull()?.let { item ->
-                    val dataMap = DataMapItem.fromDataItem(item).dataMap
-                    processQuestionConfig(dataMap)
+    // --- NEW: Functions to manage category selection ---
+
+    fun navigateTo(screen: Screen) {
+        _uiState.update { it.copy(currentScreen = screen) }
+    }
+
+    fun toggleCategorySelection(categoryId: String) {
+        _uiState.update { currentState ->
+            val currentSelection = currentState.selectedCategoryIds.toMutableSet()
+            if (categoryId in currentSelection) {
+                // Prevent removing if it's the last one
+                if (currentSelection.size > 1) {
+                    currentSelection.remove(categoryId)
                 }
-                dataItems.release()
-            } catch (e: Exception) {
-                println("Error fetching initial watch config: $e")
-            }
-        }
-    }
-
-    override fun onDataChanged(dataEvents: DataEventBuffer) {
-        dataEvents.forEach { event ->
-            if (event.type == DataEvent.TYPE_CHANGED && event.dataItem.uri.path == "/config_questions") {
-                val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
-                processQuestionConfig(dataMap)
-            }
-        }
-        dataEvents.release()
-    }
-
-    private fun processQuestionConfig(dataMap: DataMap) {
-        val questionsJson = dataMap.getString("KEY_QUESTIONS_LIST") ?: return
-        try {
-            val type = object : TypeToken<Set<String>>() {}.type
-            val questions: Set<String> = Gson().fromJson(questionsJson, type)
-
-            _uiState.update { currentState ->
-                val newValues = questions.associateWith { question ->
-                    currentState.questionValues.getOrElse(question) { 5 }
+            } else {
+                // Allow adding only if less than 3 are selected
+                if (currentSelection.size < 3) {
+                    currentSelection.add(categoryId)
                 }
-                currentState.copy(questions = questions.toList(), questionValues = newValues)
             }
-        } catch (e: Exception) {
-            println("Error parsing questions JSON on watch: $e")
+            // Update values map to reflect the new selection
+            val newValues = currentSelection.associateWith { id ->
+                currentState.questionValues.getOrElse(id) { 5 }
+            }
+            currentState.copy(selectedCategoryIds = currentSelection, questionValues = newValues)
         }
     }
+
+
+    // --- UNCHANGED: Functions to manage rating values ---
 
     fun onValueChange(question: String, newValue: Int) {
         _uiState.update {
@@ -131,11 +140,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application),
         return _uiState.value.questionValues.getOrElse(question) { 5 }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        dataClient.removeListener(this)
-    }
-
+    // --- UNCHANGED: Factory for ViewModel creation ---
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(WatchViewModel::class.java)) {
@@ -156,8 +161,73 @@ class MainActivity : ComponentActivity() {
         setContent {
             AndromedaTheme {
                 val viewModel: WatchViewModel = viewModel(factory = WatchViewModel.Factory(application))
-                WellnessInputScreen(viewModel)
+                val uiState by viewModel.uiState.collectAsState()
+
+                // Simple navigation based on the ViewModel's state
+                when (uiState.currentScreen) {
+                    Screen.Input -> WellnessInputScreen(viewModel)
+                    Screen.CategorySelection -> CategorySelectionScreen(viewModel)
+                }
             }
+        }
+    }
+}
+
+// --- NEW: Category Selection Screen ---
+
+@Composable
+fun CategorySelectionScreen(viewModel: WatchViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // --- THIS TEXT CAN NOW BE DYNAMIC ---
+        val remaining = 3 - uiState.selectedCategoryIds.size
+        Text(
+            text = if (remaining > 0) "Select $remaining more" else "Categories",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        // Display all 5 icons in a flow layout
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            uiState.allCategories.forEach { category ->
+                val isSelected = category.id in uiState.selectedCategoryIds
+                Icon(
+                    imageVector = category.icon,
+                    contentDescription = category.label,
+                    modifier = Modifier
+                        .size(39.dp)
+                        .clip(CircleShape)
+                        .clickable { viewModel.toggleCategorySelection(category.id) }
+                        .border(
+                            width = 2.dp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
+                            shape = CircleShape
+                        )
+                        .padding(8.dp),
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray
+                )
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        // --- ⭐ THIS IS THE MODIFIED BUTTON ⭐ ---
+        // Button is now disabled unless exactly 3 categories are selected.
+        Button(
+            onClick = { viewModel.navigateTo(Screen.Input) },
+            enabled = uiState.selectedCategoryIds.size == 3
+        ) {
+            Icon(imageVector = Icons.Default.Check, contentDescription = "Confirm")
         }
     }
 }
@@ -171,6 +241,11 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
 
     var weight by remember { mutableIntStateOf(150) }
 
+    // Get the full category objects for the selected IDs to display them
+    val selectedCategories = remember(uiState.selectedCategoryIds, uiState.allCategories) {
+        uiState.allCategories.filter { it.id in uiState.selectedCategoryIds }
+    }
+
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 24.dp, start = 8.dp, end = 8.dp, bottom = 24.dp),
@@ -178,13 +253,10 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Text(
-                text = "New Wellness Entry",
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center
-            )
+            Text("New Entry", style = MaterialTheme.typography.titleMedium)
         }
 
+        // Weight selector remains unchanged
         item {
             ValueSelector(
                 label = "Weight",
@@ -194,54 +266,68 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
             )
         }
 
-        items(uiState.questions, key = { it }) { question ->
+        // This now iterates over the 3 selected categories
+        items(selectedCategories, key = { it.id }) { category ->
             ValueSelector(
-                label = question.replaceFirstChar { it.titlecase() }, // "DIET" -> "Diet"
-                value = viewModel.getQuestionValue(question),
-                onValueChange = { newValue -> viewModel.onValueChange(question, newValue) },
-                range = 0..10
+                label = category.label,
+                value = viewModel.getQuestionValue(category.id),
+                onValueChange = { newValue -> viewModel.onValueChange(category.id, newValue) },
+                range = 1..10
             )
         }
 
         item {
+            // Button to navigate to the category selection screen
+            Button(onClick = { viewModel.navigateTo(Screen.CategorySelection) }) {
+                Text("Edit Categories")
+            }
+        }
+
+        item {
             Spacer(modifier = Modifier.height(8.dp))
-            // Main Submit Button
             Button(
+
+
                 onClick = {
                     coroutineScope.launch {
                         try {
                             val putDataMapRequest = PutDataMapRequest.create("/wellness_data").apply {
-                                dataMap.putInt("KEY_WEIGHT", weight)
-                                uiState.questionValues.forEach { (key, value) ->
-                                    when (key) {
-                                        "DIET" -> dataMap.putInt("KEY_Q1", value)
-                                        "ACTIVITY" -> dataMap.putInt("KEY_Q2", value)
-                                        "SLEEP" -> dataMap.putInt("KEY_Q3", value)
-                                        "WATER" -> dataMap.putInt("KEY_Q4", value)
-                                        "PROTEIN" -> dataMap.putInt("KEY_Q5", value)
-                                    }
-                                }
+                                // These values are always present
+                                dataMap.putDouble("KEY_WEIGHT", weight.toDouble())
                                 dataMap.putLong("KEY_TIMESTAMP", System.currentTimeMillis())
+
+                                // --- THIS IS THE MODIFIED LOGIC ---
+                                // Get the map of user-rated values
+                                val userRatings = uiState.questionValues
+
+                                // For each possible category, send its rating if it exists, otherwise send 0.
+                                dataMap.putInt("KEY_Q1", userRatings.getOrElse("DIET") { 0 })
+                                dataMap.putInt("KEY_Q2", userRatings.getOrElse("ACTIVITY") { 0 })
+                                dataMap.putInt("KEY_Q3", userRatings.getOrElse("SLEEP") { 0 })
+                                dataMap.putInt("KEY_Q4", userRatings.getOrElse("WATER") { 0 })
+                                dataMap.putInt("KEY_Q5", userRatings.getOrElse("PROTEIN") { 0 })
                             }
+
+                            println("WATCH: Sending DataMap: ${putDataMapRequest.dataMap}")
+
                             val putDataRequest = putDataMapRequest.asPutDataRequest().setUrgent()
                             dataClient.putDataItem(putDataRequest).await()
-                            println("Wellness data sent successfully!")
+                            println("WATCH: Data sent successfully!")
+
                         } catch (e: Exception) {
-                            println("Error sending wellness data: $e")
+                            println("WATCH: Error sending wellness data: $e")
                         }
                     }
                 },
             ) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = "Submit Entry",
-                    modifier = Modifier.size(ButtonDefaults.LargeIconSize)
-                )
+                Icon(imageVector = Icons.Default.Check, contentDescription = "Submit")
             }
         }
     }
 }
 
+
+// This composable remains unchanged, as it's a generic UI component
 @Composable
 fun ValueSelector(
     label: String,
@@ -260,39 +346,18 @@ fun ValueSelector(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            // Decrease Button
-            Button(
-                onClick = { if (value > range.first) onValueChange(value - 1) },
-                enabled = value > range.first,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
-                // THE FIX: Remove `buttonType` and use a modifier with an explicit size.
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Remove,
-                    contentDescription = "Decrease",
-                    modifier = Modifier.size(ButtonDefaults.SmallIconSize)
-                )
+            Button(onClick = { if (value > range.first) onValueChange(value - 1) }) {
+                Icon(imageVector = Icons.Filled.Remove, contentDescription = "Decrease")
             }
-
             Text(
                 text = value.toString(),
                 style = MaterialTheme.typography.displaySmall,
                 modifier = Modifier.width(80.dp),
                 textAlign = TextAlign.Center
             )
-
-            // Increase Button
-            Button(
-                onClick = { if (value < range.last) onValueChange(value + 1) },
-                enabled = value < range.last,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
-                // THE FIX: Remove `buttonType` and use a modifier with an explicit size.
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Increase",
-                    modifier = Modifier.size(ButtonDefaults.SmallIconSize)
-                )
+            Button(onClick = { if (value < range.last) onValueChange(value + 1) }) {
+                // ⭐ THIS IS THE CORRECTED LINE ⭐
+                Icon(imageVector = Icons.Filled.Add, contentDescription = "Increase")
             }
         }
     }
