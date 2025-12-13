@@ -26,12 +26,17 @@ import kotlin.math.roundToInt
 fun AddScreen(
     selectedQuestions: Set<String>,
     currentUserEmail: String?,
+    // The timestamp of the entry to be edited, if any
+    wellnessDataId: String? = null,
+    onSaveComplete: () -> Unit,
     viewModel: AddViewModel = viewModel(
-        key = selectedQuestions.toString() + (currentUserEmail ?: ""),
+        // A unique key ensures the correct ViewModel instance
+        key = selectedQuestions.toString() + (currentUserEmail ?: "") + (wellnessDataId ?: ""),
         factory = AddViewModel.Factory(
             LocalContext.current.applicationContext as Application,
             selectedQuestions,
-            currentUserEmail
+            currentUserEmail,
+            wellnessDataId // Pass the ID to the factory
         )
     )
 ) {
@@ -39,8 +44,15 @@ fun AddScreen(
     val isWeightEntered = uiState.weight.isNotBlank()
 
     if (uiState.showSaveConfirmation) {
+        // --- MODIFIED: The onConfirm lambda now handles navigation ---
         SaveConfirmationDialog(
-            onConfirm = viewModel::dismissSaveConfirmation
+            onConfirm = {
+                viewModel.dismissSaveConfirmation()
+                // If this is an edit or past entry, complete the action (navigate back).
+                if (wellnessDataId != null) {
+                    onSaveComplete()
+                }
+            }
         )
     }
 
@@ -54,7 +66,12 @@ fun AddScreen(
             // --- MODIFIED: Increased spacing from 16.dp to 24.dp ---
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Text("Add", style = MaterialTheme.typography.headlineMedium)
+            // --- MODIFIED: Title changes based on edit mode ---
+            Text(
+                if (uiState.isEditing) "Edit Entry" else "Add Entry",
+                style = MaterialTheme.typography.headlineMedium
+            )
+
 
             WeightInput(
                 weight = uiState.weight,
@@ -102,6 +119,7 @@ fun AddScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             FloatingActionButton(
+                // --- MODIFIED: `saveEntry` no longer needs the callback ---
                 onClick = { if (isWeightEntered) viewModel.saveEntry() },
                 containerColor = if (isWeightEntered) Color(0xFF4CAF50) else Color(0xFFA5D6A7),
                 contentColor = Color.White
@@ -178,7 +196,9 @@ fun AddScreenPreview() {
     AndromedaTheme(darkTheme = false){
         // Example: If only these 3 are selected, they will be numbered Q1, Q2, Q3
         AddScreen(selectedQuestions = setOf("DIET", "SLEEP", "WATER"),
-            currentUserEmail = null)
+            currentUserEmail = null,
+            onSaveComplete = {} // Provide an empty lambda for preview
+        )
 
     }
 }

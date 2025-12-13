@@ -9,8 +9,12 @@ import com.example.andromeda.data.WellnessDataRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 import kotlin.math.roundToInt
 
 data class AddScreenUiState(
@@ -20,16 +24,46 @@ data class AddScreenUiState(
     val sleepHours: Float = 5f, // Default to 5
     val waterIntake: Float = 5f, // Default to 5
     val proteinIntake: Float = 5f, // Default to 5
-    val showSaveConfirmation: Boolean = false
+    val showSaveConfirmation: Boolean = false,
+    val isEditing: Boolean = false // Track if we are in edit mode
 )
 
 class AddViewModel(
     private val repository: WellnessDataRepository,
     private val selectedQuestions: Set<String>,
-    private val currentUserEmail: String?
+    private val currentUserEmail: String?,
+    private val wellnessDataId: String? // Timestamp of the entry to edit
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AddScreenUiState())
     val uiState: StateFlow<AddScreenUiState> = _uiState.asStateFlow()
+
+    init {
+        if (wellnessDataId != null) {
+            loadWellnessDataForEdit(wellnessDataId)
+        }
+    }
+
+    private fun loadWellnessDataForEdit(timestamp: String) {
+        viewModelScope.launch {
+            val wellnessData = repository.allWellnessData.first()
+                .find { it.timestamp == timestamp && it.userEmail == currentUserEmail }
+
+            if (wellnessData != null) {
+                _uiState.update {
+                    it.copy(
+                        weight = wellnessData.weight.toString(),
+                        dietRating = wellnessData.dietRating?.toFloat() ?: 5f,
+                        activityRating = wellnessData.activityLevel?.toFloat() ?: 5f,
+                        sleepHours = wellnessData.sleepHours?.toFloat() ?: 5f,
+                        waterIntake = wellnessData.waterIntake?.toFloat() ?: 5f,
+                        proteinIntake = wellnessData.proteinIntake?.toFloat() ?: 5f,
+                        isEditing = true
+                    )
+                }
+            }
+        }
+    }
+
 
     fun onWeightChange(weight: String) {
         _uiState.update { it.copy(weight = weight) }
@@ -55,6 +89,7 @@ class AddViewModel(
         _uiState.update { it.copy(proteinIntake = intake) }
     }
 
+    // --- MODIFIED: `saveEntry` no longer calls onSaveComplete directly ---
     fun saveEntry() {
         val currentUiState = _uiState.value
         val weightValue = currentUiState.weight.toDoubleOrNull()
@@ -62,6 +97,9 @@ class AddViewModel(
             viewModelScope.launch {
                 val entryToSave = WellnessData(
                     userEmail = currentUserEmail,
+                    // Use existing timestamp if editing, otherwise generate a new one
+                    timestamp = wellnessDataId ?: SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
+                        Calendar.getInstance().time),
                     weight = weightValue,
                     dietRating = if ("DIET" in selectedQuestions) currentUiState.dietRating.roundToInt() else null,
                     activityLevel = if ("ACTIVITY" in selectedQuestions) currentUiState.activityRating.roundToInt() else null,
@@ -70,7 +108,9 @@ class AddViewModel(
                     proteinIntake = if ("PROTEIN" in selectedQuestions) currentUiState.proteinIntake.roundToInt() else null
                 )
                 repository.addWellnessData(entryToSave)
-                // --- MODIFIED: Reset all ratings to 5f after saving ---
+
+                // --- MODIFIED LOGIC ---
+                // Always reset the state and set showSaveConfirmation to true.
                 _uiState.update {
                     it.copy(
                         weight = "",
@@ -93,7 +133,8 @@ class AddViewModel(
     class Factory(
         private val application: Application,
         private val selectedQuestions: Set<String>,
-        private val currentUserEmail: String?
+        private val currentUserEmail: String?,
+        private val wellnessDataId: String? // Pass the ID to the factory
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(AddViewModel::class.java)) {
@@ -101,7 +142,8 @@ class AddViewModel(
                 return AddViewModel(
                     repository = WellnessDataRepository(application),
                     selectedQuestions = selectedQuestions,
-                    currentUserEmail = currentUserEmail
+                    currentUserEmail = currentUserEmail,
+                    wellnessDataId = wellnessDataId // Provide ID to ViewModel
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
