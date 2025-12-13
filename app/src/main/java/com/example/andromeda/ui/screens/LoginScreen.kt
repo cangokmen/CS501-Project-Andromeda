@@ -2,6 +2,7 @@ package com.example.andromeda.ui.screens
 
 import android.app.Application
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -13,6 +14,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.andromeda.viewmodels.AuthViewModel
 
 @Composable
 fun LoginScreen(
@@ -37,21 +39,45 @@ fun LoginScreen(
         ) {
 
             Text(
-                text = if (uiState.isLoginMode) "Andromeda Login" else "Create your account",
+                text = if (uiState.isLoginMode) "Andromeda Login" else "Create Your Account",
                 style = MaterialTheme.typography.headlineMedium
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Name only in Register mode
+            // --- Fields only in Register mode ---
             if (!uiState.isLoginMode) {
                 OutlinedTextField(
                     value = uiState.name,
                     onValueChange = viewModel::onNameChange,
-                    label = { Text("Name") },
+                    label = { Text("First and Last Name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // --- ADDED: Age and Target Weight fields ---
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = uiState.age,
+                        onValueChange = viewModel::onAgeChange,
+                        label = { Text("Age") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = uiState.targetWeight,
+                        onValueChange = viewModel::onTargetWeightChange,
+                        label = { Text("Target Weight (lbs)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
@@ -60,7 +86,7 @@ fun LoginScreen(
                 onValueChange = viewModel::onEmailChange,
                 label = { Text("Email") },
                 singleLine = true,
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email
                 ),
                 modifier = Modifier.fillMaxWidth()
@@ -115,18 +141,7 @@ fun LoginScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Google login button (UI stub; you can wire real Google Sign-In later)
-            OutlinedButton(
-                onClick = {
-                    // TODO: Implement Google Sign-In
-                    // For now, this is just a UI button.
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Continue with Google")
-            }
+            // --- REMOVED: Google login button ---
         }
     }
 }
