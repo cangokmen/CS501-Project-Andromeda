@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -110,7 +111,9 @@ class WatchViewModel(
 
     fun onValueChange(question: String, newValue: Int) {
         _uiState.update {
-            it.copy(questionValues = it.questionValues + (question to newValue))
+            val newQuestionValues = it.questionValues.toMutableMap()
+            newQuestionValues[question] = newValue
+            it.copy(questionValues = newQuestionValues)
         }
     }
 
@@ -153,7 +156,9 @@ fun CategorySelectionScreen(viewModel: WatchViewModel) {
     val uiState by viewModel.uiState.collectAsState()
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -179,12 +184,10 @@ fun CategorySelectionScreen(viewModel: WatchViewModel) {
                         .clickable { viewModel.toggleCategorySelection(category.id) }
                         .border(
                             width = 2.dp,
-                            // CORRECTED: Use theme color for border
                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             shape = CircleShape
                         )
                         .padding(8.dp),
-                    // CORRECTED: Use theme color for icon tint
                     tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -194,7 +197,13 @@ fun CategorySelectionScreen(viewModel: WatchViewModel) {
             onClick = { viewModel.confirmCategorySelection() },
             enabled = uiState.selectedCategoryIds.size == 3
         ) {
-            Icon(imageVector = Icons.Default.Check, contentDescription = "Confirm")
+            // CORRECTED: Added Modifier.fillMaxSize() to the Box for perfect centering
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(imageVector = Icons.Default.Check, contentDescription = "Confirm")
+            }
         }
     }
 }
@@ -214,24 +223,22 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
     Box(modifier = Modifier.fillMaxSize()) {
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 24.dp, start = 8.dp, end = 8.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(top = 24.dp, start = 8.dp, end = 8.dp, bottom = 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item { Text("New Entry", style = MaterialTheme.typography.titleMedium, color = androidx.compose.ui.graphics.Color.Black) }
+            item { Text("New Entry", style = MaterialTheme.typography.titleMedium, color = Color.Black) }
 
-            // Hardcoded Black for the "Weight" selector
             item {
                 ValueSelector(
                     label = "Weight",
                     value = weight,
                     onValueChange = { weight = it },
                     range = 50..400,
-                    color = androidx.compose.ui.graphics.Color.Black
+                    color = Color.Black
                 )
             }
 
-            // Hardcoded Black for the dynamic category selectors
             items(selectedCategories, key = { it.id }) { category ->
                 var rating by remember(uiState.questionValues[category.id]) {
                     mutableStateOf(uiState.questionValues[category.id] ?: 5)
@@ -244,13 +251,19 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
                         viewModel.onValueChange(category.id, newValue)
                     },
                     range = 1..10,
-                    color = androidx.compose.ui.graphics.Color.Black // Add this line
+                    color = Color.Black
                 )
             }
 
             item {
                 Button(onClick = { viewModel.navigateTo(Screen.CategorySelection) }) {
-                    Text("Edit Categories")
+                    // CORRECTED: Added Modifier.fillMaxSize() to the Box for perfect centering
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Edit Categories")
+                    }
                 }
             }
             item {
@@ -268,17 +281,21 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
                                 dataMap.putInt("KEY_Q4", userRatings.getOrElse("WATER") { 0 })
                                 dataMap.putInt("KEY_Q5", userRatings.getOrElse("PROTEIN") { 0 })
                             }
-                            println("WATCH: Sending DataMap: ${putDataMapRequest.dataMap}")
                             val putDataRequest = putDataMapRequest.asPutDataRequest().setUrgent()
                             dataClient.putDataItem(putDataRequest).await()
-                            println("WATCH: Data sent successfully!")
                             activity?.finish()
                         } catch (e: Exception) {
                             println("WATCH: Error sending wellness data: $e")
                         }
                     }
                 }) {
-                    Icon(imageVector = Icons.Default.Check, contentDescription = "Submit")
+                    // CORRECTED: Added Modifier.fillMaxSize() to the Box for perfect centering
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(imageVector = Icons.Default.Check, contentDescription = "Submit")
+                    }
                 }
             }
         }
@@ -286,13 +303,12 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
 }
 
 @Composable
-fun ValueSelector(label: String, value: Int, onValueChange: (Int) -> Unit, range: IntRange, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface) {
+fun ValueSelector(label: String, value: Int, onValueChange: (Int) -> Unit, range: IntRange, color: Color = MaterialTheme.colorScheme.onSurface) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // FIX 1: Apply the color here.
         Text(text = label, style = MaterialTheme.typography.bodyLarge, color = color)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -300,9 +316,14 @@ fun ValueSelector(label: String, value: Int, onValueChange: (Int) -> Unit, range
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Button(onClick = { if (value > range.first) onValueChange(value - 1) }) {
-                Icon(imageVector = Icons.Filled.Remove, contentDescription = "Decrease")
+                // CORRECTED: Added Modifier.fillMaxSize() to the Box for perfect centering
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(imageVector = Icons.Filled.Remove, contentDescription = "Decrease")
+                }
             }
-            // FIX 2: Apply the color here as well.
             Text(
                 text = value.toString(),
                 style = MaterialTheme.typography.displaySmall,
@@ -311,9 +332,14 @@ fun ValueSelector(label: String, value: Int, onValueChange: (Int) -> Unit, range
                 color = color
             )
             Button(onClick = { if (value < range.last) onValueChange(value + 1) }) {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = "Increase")
+                // CORRECTED: Added Modifier.fillMaxSize() to the Box for perfect centering
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(imageVector = Icons.Filled.Add, contentDescription = "Increase")
+                }
             }
         }
     }
 }
-
