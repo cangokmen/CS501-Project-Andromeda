@@ -89,7 +89,7 @@ fun HomeScreen(
             Text("No wellness data has been saved yet.")
         } else {
             Text(
-                "14-Day Weight Trend",
+                "Last 10-Day Weight Trend",
                 style = MaterialTheme.typography.titleMedium,
             )
             WeightLineChart(
@@ -149,12 +149,14 @@ fun WeightLineChart(
     data: List<WellnessData>,
     modifier: Modifier = Modifier
 ) {
-    // Build rolling 14-day series, sorted oldest → newest
+
+    val lastDayCount = 10;
+    // Build rolling 10-day series, sorted oldest → newest
     val recentSorted = remember(data) {
         val today = java.time.LocalDate.now()
-        val cutoff = today.minusDays(14)
+        val cutoff = today.minusDays(lastDayCount.toLong())
         data.mapNotNull { wd ->
-            val d = runCatching { java.time.LocalDate.parse(wd.timestamp.take(10)) }.getOrNull()
+            val d = runCatching { java.time.LocalDate.parse(wd.timestamp.take(lastDayCount)) }.getOrNull()
             d?.let { Triple(wd.weight, it, wd.timestamp) } // (weight, dateOnly, rawTs)
         }
             .filter { it.second >= cutoff }
