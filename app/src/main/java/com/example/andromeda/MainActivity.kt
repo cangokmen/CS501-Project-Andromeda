@@ -45,10 +45,9 @@ import com.google.android.gms.wearable.Wearable
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
-
 
 
 class MainActivity : ComponentActivity() {
@@ -234,42 +233,45 @@ fun MainApp(
     ) {
         Scaffold(
             bottomBar = {
-                BottomAppBar(
-                    // Set the background color of the entire bar to our primary green color
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    val currentDestination = navBackStackEntry?.destination
-                    navItems.forEach { item ->
-                        NavigationBarItem(
-                            selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
-                            onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                // --- MODIFIED: Conditionally show the BottomAppBar ---
+                if (currentRoute != Screen.Login.route) {
+                    BottomAppBar(
+                        // Set the background color of the entire bar to our primary green color
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        val currentDestination = navBackStackEntry?.destination
+                        navItems.forEach { item ->
+                            NavigationBarItem(
+                                selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
+                                onClick = {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) },
-                            // Define the colors for the items on the green background
-                            colors = NavigationBarItemDefaults.colors(
-                                // Color when tab is selected (e.g., White)
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimary,
-                                // Color when tab is not selected (a muted version of the selected color)
-                                unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
-                                unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
-                                // The ripple effect color when you tap the item
-                                indicatorColor = MaterialTheme.colorScheme.secondary
+                                },
+                                icon = { Icon(item.icon, contentDescription = item.label) },
+                                label = { Text(item.label) },
+                                // Define the colors for the items on the green background
+                                colors = NavigationBarItemDefaults.colors(
+                                    // Color when tab is selected (e.g., White)
+                                    selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                    selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                    // Color when tab is not selected (a muted version of the selected color)
+                                    unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+                                    unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+                                    // The ripple effect color when you tap the item
+                                    indicatorColor = MaterialTheme.colorScheme.secondary
+                                )
                             )
-                        )
+                        }
                     }
                 }
             },
             floatingActionButton = {
-                // Hide FAB on Login screen
+                // Hide FAB on Login and Chatbot screens
                 if (currentRoute != Screen.Chatbot.route &&
                     currentRoute != Screen.Login.route
                 ) {
@@ -290,7 +292,7 @@ fun MainApp(
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.galaxy),
-                            contentDescription = "Open Chatbot"
+                            contentDescription = "Chatbot"
                         )
                     }
                 }
@@ -305,17 +307,9 @@ fun MainApp(
                 onSetTextSize = viewModel::setTextSize,
                 selectedQuestions = selectedQuestions,
                 onSetQuestions = viewModel::setQuestions,
+                onLogout = viewModel::logout,
                 isLoggedIn = isLoggedIn,
-                currentUserEmail = currentUserEmail,
-                onLogout = {
-                    viewModel.logout()
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            inclusive = true
-                        }
-                        launchSingleTop = true
-                    }
-                }
+                currentUserEmail = currentUserEmail
             )
         }
     }
