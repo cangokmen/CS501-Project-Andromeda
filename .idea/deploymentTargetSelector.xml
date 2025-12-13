@@ -4,7 +4,7 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-12-12T23:54:31.611362Z">
+        <DropdownSelection timestamp="2025-12-13T01:13:35.464120Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=/Users/cangokmen/.android/avd/Wear_OS_Large_Round.avd" />
@@ -15,7 +15,7 @@
       </SelectionState>
       <SelectionState runConfigName="watch">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-12-12T23:45:38.536562Z">
+        <DropdownSelection timestamp="2025-12-13T01:17:48.598132Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=/Users/cangokmen/.android/avd/Wear_OS_Large_Round.avd" />

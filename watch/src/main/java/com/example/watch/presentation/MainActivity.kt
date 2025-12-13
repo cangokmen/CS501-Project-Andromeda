@@ -16,7 +16,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -50,10 +49,10 @@ data class WatchUiState(
 )
 enum class Screen { Input, CategorySelection }
 
-// --- ViewModel Layer (MODIFIED to use Repository) ---
+// --- ViewModel Layer ---
 class WatchViewModel(
     application: Application,
-    private val watchDataRepository: WatchDataRepository // Inject the repository
+    private val watchDataRepository: WatchDataRepository
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(WatchUiState())
@@ -69,7 +68,6 @@ class WatchViewModel(
 
     init {
         viewModelScope.launch {
-            // Observe the questions from DataStore
             watchDataRepository.selectedQuestions.collect { savedQuestionIds ->
                 _uiState.update { currentState ->
                     currentState.copy(
@@ -88,7 +86,6 @@ class WatchViewModel(
         _uiState.update { it.copy(currentScreen = screen) }
     }
 
-    // NEW: Function to save the changes and navigate back
     fun confirmCategorySelection() {
         viewModelScope.launch {
             watchDataRepository.saveSelectedQuestions(_uiState.value.selectedCategoryIds)
@@ -117,11 +114,6 @@ class WatchViewModel(
         }
     }
 
-    fun getQuestionValue(question: String): Int {
-        return _uiState.value.questionValues.getOrElse(question) { 5 }
-    }
-
-    // MODIFIED Factory to include the repository
     class Factory(
         private val application: Application,
         private val repository: WatchDataRepository
@@ -137,16 +129,13 @@ class WatchViewModel(
 }
 
 
-// --- UI Layer for Watch (MODIFIED to use new ViewModel logic) ---
-
+// --- UI Layer for Watch ---
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             AndromedaTheme {
-                // Create repository instance here
                 val repository = remember { WatchDataRepository(application) }
-                // Pass repository to ViewModel factory
                 val viewModel: WatchViewModel = viewModel(factory = WatchViewModel.Factory(application, repository))
                 val uiState by viewModel.uiState.collectAsState()
 
@@ -159,7 +148,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// MODIFIED to call confirmCategorySelection
 @Composable
 fun CategorySelectionScreen(viewModel: WatchViewModel) {
     val uiState by viewModel.uiState.collectAsState()
@@ -174,9 +162,7 @@ fun CategorySelectionScreen(viewModel: WatchViewModel) {
             text = if (remaining > 0) "Select $remaining more" else "Categories",
             style = MaterialTheme.typography.titleMedium
         )
-
         Spacer(Modifier.height(16.dp))
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -193,20 +179,19 @@ fun CategorySelectionScreen(viewModel: WatchViewModel) {
                         .clickable { viewModel.toggleCategorySelection(category.id) }
                         .border(
                             width = 2.dp,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
+                            // CORRECTED: Use theme color for border
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             shape = CircleShape
                         )
                         .padding(8.dp),
-                    tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray
+                    // CORRECTED: Use theme color for icon tint
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                 )
             }
         }
-
         Spacer(Modifier.height(24.dp))
-
-        // This button now saves the selection
         Button(
-            onClick = { viewModel.confirmCategorySelection() }, // Use the new save function
+            onClick = { viewModel.confirmCategorySelection() },
             enabled = uiState.selectedCategoryIds.size == 3
         ) {
             Icon(imageVector = Icons.Default.Check, contentDescription = "Confirm")
@@ -214,88 +199,101 @@ fun CategorySelectionScreen(viewModel: WatchViewModel) {
     }
 }
 
-// WellnessInputScreen and ValueSelector remain largely the same
 @Composable
 fun WellnessInputScreen(viewModel: WatchViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val activity = (context as? ComponentActivity)
     val dataClient = remember { Wearable.getDataClient(context) }
     val coroutineScope = rememberCoroutineScope()
     var weight by remember { mutableIntStateOf(150) }
     val selectedCategories = remember(uiState.selectedCategoryIds, uiState.allCategories) {
         uiState.allCategories.filter { it.id in uiState.selectedCategoryIds }
     }
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 24.dp, start = 8.dp, end = 8.dp, bottom = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item { Text("New Entry", style = MaterialTheme.typography.titleMedium) }
-        item {
-            ValueSelector(label = "Weight", value = weight, onValueChange = { weight = it }, range = 50..400)
-        }
-        items(selectedCategories, key = { it.id }) { category ->
-            // --- THIS IS THE KEY CHANGE ---
-            // 1. Create a local state holder for the rating, initialized from the ViewModel.
-            //    remember's key ensures it resets if the underlying ViewModel data changes.
-            var rating by remember(uiState.questionValues[category.id]) {
-                mutableIntStateOf(uiState.questionValues[category.id] ?: 5)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = 24.dp, start = 8.dp, end = 8.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item { Text("New Entry", style = MaterialTheme.typography.titleMedium, color = androidx.compose.ui.graphics.Color.Black) }
+
+            // Hardcoded Black for the "Weight" selector
+            item {
+                ValueSelector(
+                    label = "Weight",
+                    value = weight,
+                    onValueChange = { weight = it },
+                    range = 50..400,
+                    color = androidx.compose.ui.graphics.Color.Black
+                )
             }
 
-            ValueSelector(
-                label = category.label,
-                value = rating, // 2. The UI reads from the local 'rating' state.
-                onValueChange = { newValue ->
-                    rating = newValue // 3. Update the local state instantly (this is fast).
-                    viewModel.onValueChange(category.id, newValue) // 4. Notify the ViewModel in the background.
-                },
-                range = 1..10
-            )
-        }
-        item {
-            Button(onClick = { viewModel.navigateTo(Screen.CategorySelection) }) {
-                Text("Edit Categories")
-            }
-        }
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = {
-                coroutineScope.launch {
-                    try {
-                        val putDataMapRequest = PutDataMapRequest.create("/wellness_data").apply {
-                            dataMap.putDouble("KEY_WEIGHT", weight.toDouble())
-                            dataMap.putLong("KEY_TIMESTAMP", System.currentTimeMillis())
-                            val userRatings = uiState.questionValues
-                            dataMap.putInt("KEY_Q1", userRatings.getOrElse("DIET") { 0 })
-                            dataMap.putInt("KEY_Q2", userRatings.getOrElse("ACTIVITY") { 0 })
-                            dataMap.putInt("KEY_Q3", userRatings.getOrElse("SLEEP") { 0 })
-                            dataMap.putInt("KEY_Q4", userRatings.getOrElse("WATER") { 0 })
-                            dataMap.putInt("KEY_Q5", userRatings.getOrElse("PROTEIN") { 0 })
-                        }
-                        println("WATCH: Sending DataMap: ${putDataMapRequest.dataMap}")
-                        val putDataRequest = putDataMapRequest.asPutDataRequest().setUrgent()
-                        dataClient.putDataItem(putDataRequest).await()
-                        println("WATCH: Data sent successfully!")
-                    } catch (e: Exception) {
-                        println("WATCH: Error sending wellness data: $e")
-                    }
+            // Hardcoded Black for the dynamic category selectors
+            items(selectedCategories, key = { it.id }) { category ->
+                var rating by remember(uiState.questionValues[category.id]) {
+                    mutableStateOf(uiState.questionValues[category.id] ?: 5)
                 }
-            }) {
-                Icon(imageVector = Icons.Default.Check, contentDescription = "Submit")
+                ValueSelector(
+                    label = category.label,
+                    value = rating,
+                    onValueChange = { newValue ->
+                        rating = newValue
+                        viewModel.onValueChange(category.id, newValue)
+                    },
+                    range = 1..10,
+                    color = androidx.compose.ui.graphics.Color.Black // Add this line
+                )
+            }
+
+            item {
+                Button(onClick = { viewModel.navigateTo(Screen.CategorySelection) }) {
+                    Text("Edit Categories")
+                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = {
+                    coroutineScope.launch {
+                        try {
+                            val putDataMapRequest = PutDataMapRequest.create("/wellness_data").apply {
+                                dataMap.putDouble("KEY_WEIGHT", weight.toDouble())
+                                dataMap.putLong("KEY_TIMESTAMP", System.currentTimeMillis())
+                                val userRatings = uiState.questionValues
+                                dataMap.putInt("KEY_Q1", userRatings.getOrElse("DIET") { 0 })
+                                dataMap.putInt("KEY_Q2", userRatings.getOrElse("ACTIVITY") { 0 })
+                                dataMap.putInt("KEY_Q3", userRatings.getOrElse("SLEEP") { 0 })
+                                dataMap.putInt("KEY_Q4", userRatings.getOrElse("WATER") { 0 })
+                                dataMap.putInt("KEY_Q5", userRatings.getOrElse("PROTEIN") { 0 })
+                            }
+                            println("WATCH: Sending DataMap: ${putDataMapRequest.dataMap}")
+                            val putDataRequest = putDataMapRequest.asPutDataRequest().setUrgent()
+                            dataClient.putDataItem(putDataRequest).await()
+                            println("WATCH: Data sent successfully!")
+                            activity?.finish()
+                        } catch (e: Exception) {
+                            println("WATCH: Error sending wellness data: $e")
+                        }
+                    }
+                }) {
+                    Icon(imageVector = Icons.Default.Check, contentDescription = "Submit")
+                }
             }
         }
     }
 }
 
 @Composable
-fun ValueSelector(label: String, value: Int, onValueChange: (Int) -> Unit, range: IntRange) {
+fun ValueSelector(label: String, value: Int, onValueChange: (Int) -> Unit, range: IntRange, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+        // FIX 1: Apply the color here.
+        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = color)
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -304,11 +302,13 @@ fun ValueSelector(label: String, value: Int, onValueChange: (Int) -> Unit, range
             Button(onClick = { if (value > range.first) onValueChange(value - 1) }) {
                 Icon(imageVector = Icons.Filled.Remove, contentDescription = "Decrease")
             }
+            // FIX 2: Apply the color here as well.
             Text(
                 text = value.toString(),
                 style = MaterialTheme.typography.displaySmall,
                 modifier = Modifier.width(80.dp),
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                color = color
             )
             Button(onClick = { if (value < range.last) onValueChange(value + 1) }) {
                 Icon(imageVector = Icons.Filled.Add, contentDescription = "Increase")
@@ -316,3 +316,4 @@ fun ValueSelector(label: String, value: Int, onValueChange: (Int) -> Unit, range
         }
     }
 }
+
