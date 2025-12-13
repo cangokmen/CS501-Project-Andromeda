@@ -54,7 +54,7 @@ fun AddScreen(
             // --- MODIFIED: Increased spacing from 16.dp to 24.dp ---
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Text("ADD", style = MaterialTheme.typography.headlineMedium)
+            Text("Add", style = MaterialTheme.typography.headlineMedium)
 
             WeightInput(
                 weight = uiState.weight,
