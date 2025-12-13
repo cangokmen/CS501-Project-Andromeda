@@ -70,4 +70,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
 
     implementation("com.google.code.gson:gson:2.10.1")
+
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 }
