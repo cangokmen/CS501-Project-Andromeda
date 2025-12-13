@@ -33,21 +33,34 @@ class WellnessDataRepository(private val context: Context) {
             val jsonString = preferences[WELLNESS_DATA_LIST_KEY] ?: "[]"
             // Define the type for deserialization
             val type = object : TypeToken<List<WellnessData>>() {}.type
-            gson.fromJson(jsonString, type)
+            // Ensure the list is sorted by date ascending
+            val list: List<WellnessData> = gson.fromJson(jsonString, type)
+            list.sortedBy { it.timestamp }
         }
 
     // Function to add a new wellness entry
     suspend fun addWellnessData(wellnessData: WellnessData) {
         // This is a high-visibility error log. If this function is called, you will see this.
-        Log.d("WellnessDataRepository", "ADDING DATA: $wellnessData")
+        Log.d("WellnessDataRepository", "ADDING/UPDATING DATA: $wellnessData")
         context.dataStore.edit { preferences ->
             // Retrieve the current list
             val currentJson = preferences[WELLNESS_DATA_LIST_KEY] ?: "[]"
             val type = object : TypeToken<List<WellnessData>>() {}.type
             val currentList: MutableList<WellnessData> = gson.fromJson(currentJson, type)
 
-            // Add the new entry
-            currentList.add(wellnessData)
+            // --- MODIFIED LOGIC ---
+            // Find the index of an entry with the same date (timestamp)
+            val existingIndex = currentList.indexOfFirst { it.timestamp == wellnessData.timestamp }
+
+            if (existingIndex != -1) {
+                // If an entry for today exists, overwrite it
+                Log.d("WellnessDataRepository", "Overwriting data for date: ${wellnessData.timestamp}")
+                currentList[existingIndex] = wellnessData
+            } else {
+                // Otherwise, add the new entry
+                Log.d("WellnessDataRepository", "Adding new data for date: ${wellnessData.timestamp}")
+                currentList.add(wellnessData)
+            }
 
             // Save the updated list back to DataStore
             preferences[WELLNESS_DATA_LIST_KEY] = gson.toJson(currentList)
