@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.andromeda.BuildConfig
+// --- ADDED: Import AuthRepository and UserProfile ---
+import com.example.andromeda.data.AuthRepository
+import com.example.andromeda.data.UserProfile
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
 import com.google.ai.client.generativeai.GenerativeModel
@@ -23,7 +26,11 @@ data class HomeUiState(
     val error: String? = null
 )
 
-class HomeViewModel(private val repository: WellnessDataRepository) : ViewModel() {
+// --- MODIFIED: Added authRepository to the constructor ---
+class HomeViewModel(
+    private val wellnessRepo: WellnessDataRepository,
+    private val authRepo: AuthRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
@@ -32,15 +39,18 @@ class HomeViewModel(private val repository: WellnessDataRepository) : ViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                // Fetch the most recent data
-                val wellnessData = repository.allWellnessData.first().takeLast(7) // Get last 7 entries
+                // Fetch user profile and wellness data in parallel
+                val currentUserEmail = authRepo.getCurrentUserEmail()
+                val userProfile = currentUserEmail?.let { authRepo.getUserProfile(it) }
+                val wellnessData = wellnessRepo.allWellnessData.first().takeLast(7) // Get last 7 entries
+
                 if (wellnessData.isEmpty()) {
                     _uiState.update { it.copy(suggestions = listOf("Not enough data to generate suggestions. Please add more entries."), isLoading = false) }
                     return@launch
                 }
 
-                // Create the prompt
-                val prompt = createPrompt(wellnessData)
+                // --- MODIFIED: Pass user profile to the prompt creator ---
+                val prompt = createPrompt(wellnessData, userProfile)
 
                 val responseText = withContext(Dispatchers.IO) {
                     val generativeModel = GenerativeModel(
@@ -65,14 +75,25 @@ class HomeViewModel(private val repository: WellnessDataRepository) : ViewModel(
         }
     }
 
-    private fun createPrompt(data: List<WellnessData>): String {
+    // --- MODIFIED: createPrompt now accepts a UserProfile ---
+    private fun createPrompt(data: List<WellnessData>, profile: UserProfile?): String {
         val dataSummary = data.joinToString(separator = "\n") { entry ->
             "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: "N/A"}, " +
                     "Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
         }
 
+        // --- MODIFIED: Add user context to the prompt ---
+        val userContext = if (profile != null) {
+            "The user's age is ${profile.age} and their target weight is ${profile.targetWeight} lbs."
+        } else {
+            ""
+        }
+
         return """
-        Based on the following recent wellness data for a user:
+        Based on the following user information and recent wellness data:
+        $userContext
+        
+        Recent Data:
         $dataSummary
 
         Please provide 3 very short, encouraging, and actionable suggestions or motivational tips to 
@@ -81,12 +102,15 @@ class HomeViewModel(private val repository: WellnessDataRepository) : ViewModel(
         """.trimIndent()
     }
 
-    // Factory to create the ViewModel with its dependency
+    // --- MODIFIED: Factory now provides both repositories ---
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return HomeViewModel(WellnessDataRepository(application)) as T
+                return HomeViewModel(
+                    WellnessDataRepository(application),
+                    AuthRepository(application) // Provide AuthRepository
+                ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
