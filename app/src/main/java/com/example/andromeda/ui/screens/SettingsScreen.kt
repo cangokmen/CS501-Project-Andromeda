@@ -9,30 +9,21 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -50,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -102,37 +94,12 @@ fun SettingsScreen(
         }
     ) { targetState ->
         when (targetState) {
-            ScreenState.Main -> {
-                val settingsItems = listOf(
-                    SettingItem("Account", Icons.Default.AccountCircle) { screenState = ScreenState.Account },
-                    SettingItem("Question Management", Icons.Default.Build) { screenState = ScreenState.QuestionManagement },
-                    SettingItem("Preferences", Icons.Default.Face) { screenState = ScreenState.Preferences },
-                    SettingItem("Accessibility", Icons.Default.Info) { screenState = ScreenState.Accessibility }
-                )
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                        items(settingsItems.size) { index ->
-                            val item = settingsItems[index]
-                            ListItem(
-                                headlineContent = { Text(item.title) },
-                                leadingContent = {
-                                    Icon(
-                                        imageVector = item.icon,
-                                        contentDescription = item.title
-                                    )
-                                },
-                                modifier = Modifier.clickable { item.onClick() }
-                            )
-                            if (index < settingsItems.size - 1) {
-                                Divider(modifier = Modifier.padding(horizontal = 16.dp))
-                            }
-                        }
-                    }
-                }
-            }
+            ScreenState.Main -> SettingsMainScreen(
+                onAccountClick = { screenState = ScreenState.Account },
+                onQuestionManagementClick = { screenState = ScreenState.QuestionManagement },
+                onPreferencesClick = { screenState = ScreenState.Preferences },
+                onAccessibilityClick = { screenState = ScreenState.Accessibility }
+            )
 
             ScreenState.Account -> AccountSettings(
                 onBackClicked = { screenState = ScreenState.Main },
@@ -160,6 +127,115 @@ fun SettingsScreen(
     }
 }
 
+/**
+ * MAIN SETTINGS PAGE – “Profile” header, Help & Feedback, Settings card.
+ * (Calendar removed)
+ */
+@Composable
+private fun SettingsMainScreen(
+    onAccountClick: () -> Unit,
+    onQuestionManagementClick: () -> Unit,
+    onPreferencesClick: () -> Unit,
+    onAccessibilityClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Settings",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Help & Feedback
+            item {
+                Text(
+                    text = "Help & Feedback",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(2.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column {
+                        SettingsRow(title = "Help Center", onClick = { /* TODO */ })
+                        Divider()
+                        SettingsRow(title = "Feedback", onClick = { /* TODO */ })
+                    }
+                }
+            }
+
+            // Settings section
+            item {
+                Text(
+                    text = "Settings",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(2.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column {
+                        SettingsRow(title = "Account", onClick = onAccountClick)
+                        Divider()
+                        SettingsRow(title = "Question Management", onClick = onQuestionManagementClick)
+                        Divider()
+                        SettingsRow(title = "Preferences", onClick = onPreferencesClick)
+                        Divider()
+                        SettingsRow(title = "Accessibility", onClick = onAccessibilityClick)
+                        Divider()
+                        SettingsRow(title = "Privacy Policy", onClick = { /* TODO */ })
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsRow(
+    title: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = title, style = MaterialTheme.typography.bodyLarge)
+        Icon(
+            imageVector = Icons.Filled.ArrowForward,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+/* ------------------------- EXISTING DETAIL SCREENS ------------------------- */
+
 @Composable
 fun AccountSettings(
     onBackClicked: () -> Unit,
@@ -178,13 +254,10 @@ fun AccountSettings(
 
     var showResetDialog by remember { mutableStateOf(false) }
 
-    // Load current user's name + profile from DataStore
     LaunchedEffect(Unit) {
         val email = userPrefs.userEmail.first()
         val storedName = userPrefs.userName.first()
-        if (storedName != null) {
-            name = storedName
-        }
+        if (storedName != null) name = storedName
         if (email != null) {
             val profile = userPrefs.getAccountProfile(email)
             lastName = profile.lastName
@@ -193,7 +266,6 @@ fun AccountSettings(
         }
     }
 
-    // --- Seed sample wellness data from JSON for this user ---
     val seedData: () -> Unit = {
         coroutineScope.launch {
             val email = userPrefs.userEmail.first() ?: return@launch
@@ -205,18 +277,16 @@ fun AccountSettings(
 
             dataToSeed.forEach { data ->
                 val roundedWeight = data.weight
-                    ?.toBigDecimal()
-                    ?.setScale(1, RoundingMode.HALF_UP)
-                    ?.toDouble()
+                    .toBigDecimal()
+                    .setScale(1, RoundingMode.HALF_UP)
+                    .toDouble()
 
-                if (roundedWeight != null) {
-                    repository.addWellnessData(
-                        data.copy(
-                            weight = roundedWeight,
-                            userEmail = email // make sure data belongs to this account
-                        )
+                repository.addWellnessData(
+                    data.copy(
+                        weight = roundedWeight,
+                        userEmail = email
                     )
-                }
+                )
             }
         }
     }
@@ -229,22 +299,14 @@ fun AccountSettings(
             confirmButton = {
                 Button(
                     onClick = {
-                        coroutineScope.launch {
-                            repository.clearAllData()
-                        }
+                        coroutineScope.launch { repository.clearAllData() }
                         showResetDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Reset")
-                }
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Reset") }
             },
             dismissButton = {
-                Button(onClick = { showResetDialog = false }) {
-                    Text("Cancel")
-                }
+                Button(onClick = { showResetDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -255,18 +317,16 @@ fun AccountSettings(
             .padding(16.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBackClicked) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
             }
             Text("Account Details", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Button(onClick = {
                 if (isEditing) {
-                    // Save profile for this account
                     coroutineScope.launch {
                         val email = userPrefs.userEmail.first()
                         if (email != null) {
@@ -280,14 +340,11 @@ fun AccountSettings(
                     }
                 }
                 isEditing = !isEditing
-            }) {
-                Text(if (isEditing) "Save" else "Edit")
-            }
+            }) { Text(if (isEditing) "Save" else "Edit") }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Name from registration (read-only)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -300,7 +357,6 @@ fun AccountSettings(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isEditing) {
-            // User can manually enter these
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -327,7 +383,6 @@ fun AccountSettings(
                 )
             }
         } else {
-            // Read-only view
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -336,22 +391,16 @@ fun AccountSettings(
             ) {
                 InfoRow(label = "Last Name:", value = lastName)
                 InfoRow(label = "Age:", value = age)
-                InfoRow(
-                    label = "Target Weight:",
-                    value = if (targetWeight.isNotBlank()) "$targetWeight lbs" else ""
-                )
+                InfoRow(label = "Target Weight:", value = if (targetWeight.isNotBlank()) "$targetWeight lbs" else "")
             }
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        //  seeds wellness data from JSON
         Button(
             onClick = { seedData() },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
-            )
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
         ) {
             Text("ADD MANUAL DATA", color = MaterialTheme.colorScheme.onSecondaryContainer)
         }
@@ -361,9 +410,7 @@ fun AccountSettings(
         Button(
             onClick = { showResetDialog = true },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer
-            )
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
         ) {
             Text("RESET APP DATA", color = MaterialTheme.colorScheme.onErrorContainer)
         }
@@ -373,9 +420,7 @@ fun AccountSettings(
         Button(
             onClick = onLogoutClicked,
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            )
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
             Text("LOG OUT", color = MaterialTheme.colorScheme.onPrimary)
         }
@@ -402,12 +447,11 @@ fun PreferencesSettings(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBackClicked) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
+            IconButton(onClick = onBackClicked) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") }
             Text("Preferences", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.weight(1f))
         }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -417,8 +461,7 @@ fun PreferencesSettings(
             Spacer(modifier = Modifier.height(16.dp))
 
             themes.forEach { theme ->
-                val selected =
-                    (theme == "Dark" && isDarkTheme) || (theme == "Light" && !isDarkTheme)
+                val selected = (theme == "Dark" && isDarkTheme) || (theme == "Light" && !isDarkTheme)
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -426,10 +469,7 @@ fun PreferencesSettings(
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    RadioButton(
-                        selected = selected,
-                        onClick = { onSetTheme(theme == "Dark") }
-                    )
+                    RadioButton(selected = selected, onClick = { onSetTheme(theme == "Dark") })
                     Text(text = theme, modifier = Modifier.padding(start = 8.dp))
                 }
             }
@@ -469,12 +509,11 @@ fun AccessibilitySettings(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBackClicked) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
+            IconButton(onClick = onBackClicked) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") }
             Text("Accessibility", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.weight(1f))
         }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -484,8 +523,7 @@ fun AccessibilitySettings(
             Spacer(modifier = Modifier.height(16.dp))
 
             textSizes.forEach { size ->
-                val selected =
-                    (size == "Bigger" && useBiggerText) || (size == "Normal" && !useBiggerText)
+                val selected = (size == "Bigger" && useBiggerText) || (size == "Normal" && !useBiggerText)
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -493,10 +531,7 @@ fun AccessibilitySettings(
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    RadioButton(
-                        selected = selected,
-                        onClick = { onSetTextSize(size == "Bigger") }
-                    )
+                    RadioButton(selected = selected, onClick = { onSetTextSize(size == "Bigger") })
                     Text(text = size, modifier = Modifier.padding(start = 8.dp))
                 }
             }
@@ -530,12 +565,11 @@ fun QuestionManagementScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBackClicked) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
+            IconButton(onClick = onBackClicked) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") }
             Text("Manage Questions", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.weight(1f))
         }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -556,11 +590,7 @@ fun QuestionManagementScreen(
                         .fillMaxWidth()
                         .clickable(enabled = isEnabled) {
                             val newSelection = selectedQuestions.toMutableSet()
-                            if (isChecked) {
-                                newSelection.remove(key)
-                            } else {
-                                newSelection.add(key)
-                            }
+                            if (isChecked) newSelection.remove(key) else newSelection.add(key)
                             onSetQuestions(newSelection)
                         }
                         .padding(vertical = 8.dp),
@@ -570,11 +600,7 @@ fun QuestionManagementScreen(
                         checked = isChecked,
                         onCheckedChange = {
                             val newSelection = selectedQuestions.toMutableSet()
-                            if (it) {
-                                newSelection.add(key)
-                            } else {
-                                newSelection.remove(key)
-                            }
+                            if (it) newSelection.add(key) else newSelection.remove(key)
                             onSetQuestions(newSelection)
                         },
                         enabled = isEnabled
@@ -590,8 +616,6 @@ fun QuestionManagementScreen(
 @Composable
 fun SettingsScreenPreview() {
     AndromedaTheme(darkTheme = false) {
-        Surface {
-            SettingsScreen()
-        }
+        Surface { SettingsScreen() }
     }
 }
