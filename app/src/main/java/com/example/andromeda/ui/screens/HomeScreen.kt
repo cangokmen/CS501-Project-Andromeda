@@ -311,7 +311,7 @@ fun WeightLineChart(
         drawPath(path, color = lineColor, style = Stroke(width = 4f))
         for (i in 0 until n) drawCircle(pointColor, radius = 6f, center = xy(i))
 
-        drawContext.canvas.nativeCanvas.drawText("Date", size.width / 2 - 30f, size.height - (paddingBottom/4) , paintX)
+        drawContext.canvas.nativeCanvas.drawText("Date", size.width / 2 - 30f, size.height - (paddingBottom/4) + 20, paintX)
         // --- FIX: Dynamic Y-axis label ---
         drawContext.canvas.nativeCanvas.drawText("Weight ($weightUnit)", paddingLeft - 120f, paddingTop - 50f, paintY)
         // --- END FIX ---
