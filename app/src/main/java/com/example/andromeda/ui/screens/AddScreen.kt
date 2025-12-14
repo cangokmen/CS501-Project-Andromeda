@@ -15,7 +15,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -115,27 +120,57 @@ fun AddScreen(
                     val questionNumber = index + 1
                     when (questionKey) {
                         "DIET" -> WellnessRatingSlider(
-                            label = "Q$questionNumber: How would you rate your diet?",
+                            label = buildAnnotatedString {
+                                append("Q$questionNumber: How would you rate your ")
+                                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                    append("diet")
+                                }
+                                append("?")
+                            },
                             value = uiState.dietRating,
                             onValueChange = viewModel::onDietRatingChange
                         )
                         "ACTIVITY" -> WellnessRatingSlider(
-                            label = "Q$questionNumber: How would you rate your activity level?",
+                            label = buildAnnotatedString {
+                                append("Q$questionNumber: How would you rate your ")
+                                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                    append("activity")
+                                }
+                                append(" level?")
+                            },
                             value = uiState.activityRating,
                             onValueChange = viewModel::onActivityRatingChange
                         )
                         "SLEEP" -> WellnessRatingSlider(
-                            label = "Q$questionNumber: How would you rate your sleep?",
+                            label = buildAnnotatedString {
+                                append("Q$questionNumber: How would you rate your ")
+                                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                    append("sleep")
+                                }
+                                append("?")
+                            },
                             value = uiState.sleepHours,
                             onValueChange = viewModel::onSleepHoursChange
                         )
                         "WATER" -> WellnessRatingSlider(
-                            label = "Q$questionNumber: How would you rate your water intake?",
+                            label = buildAnnotatedString {
+                                append("Q$questionNumber: How would you rate your ")
+                                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                    append("water")
+                                }
+                                append(" intake?")
+                            },
                             value = uiState.waterIntake,
                             onValueChange = viewModel::onWaterIntakeChange
                         )
                         "PROTEIN" -> WellnessRatingSlider(
-                            label = "Q$questionNumber: How would you rate your protein intake?",
+                            label = buildAnnotatedString {
+                                append("Q$questionNumber: How would you rate your ")
+                                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                    append("protein")
+                                }
+                                append(" intake?")
+                            },
                             value = uiState.proteinIntake,
                             onValueChange = viewModel::onProteinIntakeChange
                         )
@@ -191,7 +226,7 @@ fun WeightInput(weight: String, onWeightChange: (String) -> Unit, unit: String) 
 
 @Composable
 private fun WellnessRatingSlider(
-    label: String,
+    label: CharSequence, // Changed to CharSequence to accept AnnotatedString
     value: Float,
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float> = 1f..10f,
@@ -202,7 +237,7 @@ private fun WellnessRatingSlider(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(text = label as AnnotatedString, style = MaterialTheme.typography.bodyLarge)
             Text(value.roundToInt().toString(), style = MaterialTheme.typography.bodyLarge)
         }
         Slider(
