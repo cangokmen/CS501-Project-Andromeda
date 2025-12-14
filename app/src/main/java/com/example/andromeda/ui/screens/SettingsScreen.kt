@@ -1,6 +1,8 @@
 package com.example.andromeda.ui.screens
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -66,7 +68,8 @@ fun SettingsScreen(
                 onAccountClick = { screenState = ScreenState.Account },
                 onQuestionManagementClick = { screenState = ScreenState.QuestionManagement },
                 onPreferencesClick = { screenState = ScreenState.Preferences },
-                onAccessibilityClick = { screenState = ScreenState.Accessibility }
+                onAccessibilityClick = { screenState = ScreenState.Accessibility },
+                onHelpCenterClick = { screenState = ScreenState.HelpCenter }
             )
             ScreenState.Account -> {
                 val profile = (authState as? AuthState.Authenticated)?.userProfile
@@ -112,23 +115,27 @@ fun SettingsScreen(
                 selectedQuestions = selectedQuestions,
                 onSetQuestions = onSetQuestions
             )
+            ScreenState.HelpCenter -> HelpCenterScreen (
+                onBackClicked = { screenState = ScreenState.Main }
+            )
         }
     }
 }
 
 
 private enum class ScreenState {
-    Main, Account, QuestionManagement, Preferences, Accessibility
+    Main, Account, QuestionManagement, Preferences, Accessibility, HelpCenter
 }
 
-// (SettingsMainScreen and SettingsRow remain unchanged)
 @Composable
 private fun SettingsMainScreen(
     onAccountClick: () -> Unit,
     onQuestionManagementClick: () -> Unit,
     onPreferencesClick: () -> Unit,
-    onAccessibilityClick: () -> Unit
+    onAccessibilityClick: () -> Unit,
+    onHelpCenterClick: () -> Unit
 ) {
+    val context = LocalContext.current
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -162,9 +169,12 @@ private fun SettingsMainScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column {
-                        SettingsRow(title = "Help Center", onClick = { /* TODO */ })
+                        SettingsRow(title = "FAQ", onClick = onHelpCenterClick)
                         Divider()
-                        SettingsRow(title = "Feedback", onClick = { /* TODO */ })
+                        SettingsRow(title = "Send Feedback", onClick = {
+                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://forms.gle/JgnX7qSxA8MrMwjd9"))
+                            context.startActivity(browserIntent)
+                        })
                     }
                 }
             }
@@ -221,6 +231,79 @@ private fun SettingsRow(
     }
 }
 
+@Composable
+private fun HelpCenterScreen(onBackClicked: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClicked) {
+                Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Text(
+                "Frequently Asked Questions",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(start = 16.dp)
+            )
+        }
+        Spacer(Modifier.height(24.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            item {
+                FaqItem(
+                    question = "How does watch sync work?",
+                    answer = "Data you enter on your watch is sent to the phone. Your average weight is sent back to the watch to be used as the default for your next entry."
+                )
+            }
+            item {
+                FaqItem(
+                    question = "How do I change my tracked questions?",
+                    answer = "You can choose which three metrics to track by going to Settings > Question Management."
+                )
+            }
+            item {
+                FaqItem(
+                    question = "How do I edit my previous entries?",
+                    answer = "In the History screen, you can click the edit icon on the entry you want to edit."
+                )
+            }
+            item {
+                FaqItem(
+                    question = "I accidentally entered an entry. Can I delete it?",
+                    answer = "In the edit screen, you can click the delete icon to delete an entry."
+                )
+            }
+            item {
+                FaqItem(
+                    question = "Which AI model is used?",
+                    answer = "The gemini-2.5-flash-lite model is used for both suggestion generation and chatbot."
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FaqItem(question: String, answer: String) {
+    Column {
+        Text(
+            text = question,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = answer,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+
 /* ------------------------- CORRECTED DETAIL SCREENS ------------------------- */
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -244,7 +327,6 @@ fun AccountSettings(
 
     // State for weight unit
     var selectedUnit by remember(profile, isEditing) { mutableStateOf(profile.weightUnit) }
-    val unitOptions = listOf("kg", "lbs")
 
     var showResetDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -511,7 +593,7 @@ fun QuestionManagementScreen(
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "Select the metrics you want to track daily.",
+            "Select up to 3 metrics you want to track daily.",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(bottom = 16.dp)
         )
@@ -521,29 +603,28 @@ fun QuestionManagementScreen(
                 Modifier
                     .fillMaxWidth()
                     .clickable {
-                        val newSelection = selectedQuestions
-                            .toMutableSet()
-                            .apply {
-                                if (contains(key)) remove(key) else add(key)
+                        val newSelection = selectedQuestions.toMutableSet()
+                        if (key in newSelection) {
+                            if (newSelection.size > 1) { // Prevent removing the last item
+                                newSelection.remove(key)
                             }
+                        } else {
+                            if (newSelection.size < 3) {
+                                newSelection.add(key)
+                            }
+                        }
                         onSetQuestions(newSelection)
                     }
                     .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Checkbox(
-                    checked = selectedQuestions.contains(key),
-                    onCheckedChange = { isChecked ->
-                        val newSelection = selectedQuestions
-                            .toMutableSet()
-                            .apply {
-                                if (isChecked) add(key) else remove(key)
-                            }
-                        onSetQuestions(newSelection)
-                    }
+                    checked = key in selectedQuestions,
+                    onCheckedChange = null, // Handled by the row click
+                    enabled = (key in selectedQuestions && selectedQuestions.size > 1) || (key !in selectedQuestions && selectedQuestions.size < 3)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
-                Text(title, fontSize = 18.sp)
+                Text(title, style = MaterialTheme.typography.bodyLarge)
             }
         }
     }
