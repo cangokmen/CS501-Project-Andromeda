@@ -69,7 +69,8 @@ fun SettingsScreen(
                 onQuestionManagementClick = { screenState = ScreenState.QuestionManagement },
                 onPreferencesClick = { screenState = ScreenState.Preferences },
                 onAccessibilityClick = { screenState = ScreenState.Accessibility },
-                onHelpCenterClick = { screenState = ScreenState.HelpCenter }
+                onHelpCenterClick = { screenState = ScreenState.HelpCenter },
+                onPrivacyPolicyClick = { screenState = ScreenState.PrivacyPolicy }
             )
             ScreenState.Account -> {
                 val profile = (authState as? AuthState.Authenticated)?.userProfile
@@ -118,13 +119,16 @@ fun SettingsScreen(
             ScreenState.HelpCenter -> HelpCenterScreen (
                 onBackClicked = { screenState = ScreenState.Main }
             )
+            ScreenState.PrivacyPolicy -> PrivacyPolicyScreen (
+                onBackClicked = { screenState = ScreenState.Main }
+            )
         }
     }
 }
 
 
 private enum class ScreenState {
-    Main, Account, QuestionManagement, Preferences, Accessibility, HelpCenter
+    Main, Account, QuestionManagement, Preferences, Accessibility, HelpCenter, PrivacyPolicy
 }
 
 @Composable
@@ -133,7 +137,8 @@ private fun SettingsMainScreen(
     onQuestionManagementClick: () -> Unit,
     onPreferencesClick: () -> Unit,
     onAccessibilityClick: () -> Unit,
-    onHelpCenterClick: () -> Unit
+    onHelpCenterClick: () -> Unit,
+    onPrivacyPolicyClick: () -> Unit
 ) {
     val context = LocalContext.current
     Surface(
@@ -199,7 +204,7 @@ private fun SettingsMainScreen(
                         Divider()
                         SettingsRow(title = "Accessibility", onClick = onAccessibilityClick)
                         Divider()
-                        SettingsRow(title = "Privacy Policy", onClick = { /* TODO */ })
+                        SettingsRow(title = "Privacy Policy", onClick = onPrivacyPolicyClick)
                     }
                 }
                 Spacer(modifier = Modifier.height(24.dp))
@@ -286,6 +291,75 @@ private fun HelpCenterScreen(onBackClicked: () -> Unit) {
         }
     }
 }
+
+// --- NEW PRIVACY POLICY SCREEN ---
+@Composable
+private fun PrivacyPolicyScreen(onBackClicked: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClicked) {
+                Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Text(
+                "Privacy Policy",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(start = 16.dp)
+            )
+        }
+        Spacer(Modifier.height(24.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            item {
+                PrivacyPolicyItem(
+                    title = "Data Storage and HIPAA",
+                    content = "Your privacy is our top priority. All personal and health-related data you enter into this application is stored locally on your device. This data is not transmitted to or stored on any external servers, ensuring it remains under your control and compliant with HIPAA privacy principles."
+                )
+            }
+            item {
+                PrivacyPolicyItem(
+                    title = "AI Features and Data Usage",
+                    content = "For AI-powered features like suggestion generation and the chatbot, we utilize Google Cloud's Vertex AI services. We have a signed Business Associate Agreement (BAA) with Google, which is a requirement for HIPAA compliance. This agreement legally ensures that any data processed by these AI models is handled securely, is not used to train Google's public models, and is protected under the strict standards of HIPAA."
+                )
+            }
+            item {
+                PrivacyPolicyItem(
+                    title = "Data Deletion",
+                    content = "You are in full control of your data. You can delete individual entries from the 'Edit' screen or clear your entire wellness history from the 'Account' settings. Logging out of your profile will permanently delete your profile and all associated data from the device."
+                )
+            }
+            item {
+                PrivacyPolicyItem(
+                    title = "Feedback",
+                    content = "When you choose to 'Send Feedback', you will be directed to a Google Form. The information you submit is used solely for the purpose of improving this application and is not linked to your personal data within the app."
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrivacyPolicyItem(title: String, content: String) {
+    Column {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = content,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
 
 @Composable
 private fun FaqItem(question: String, answer: String) {
