@@ -17,7 +17,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import com.example.andromeda.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +73,18 @@ fun RegisterScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // --- LOGO ADDED HERE ---
+            Icon(
+                painter = painterResource(id = R.drawable.galaxy),
+                contentDescription = "App Logo",
+                modifier = Modifier
+                    .size(80.dp)
+                    .graphicsLayer(alpha = 0.8f),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            // --- END LOGO ---
+
             Text("Create Your Profile", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(24.dp))
 
