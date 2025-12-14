@@ -10,61 +10,62 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 // Extension property to create a DataStore instance
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "wellness_data")
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "wellness_data_store")
 
 class WellnessDataRepository(private val context: Context) {
 
     private val gson = Gson()
+    private val wellnessDataListKey = stringPreferencesKey("wellness_data_list_v2")
 
-    init {
-        // This log will appear when the repository is first created.
-        Log.d("WellnessDataRepository", "Repository has been initialized.")
-    }
-
-    // Define a key for storing the list of wellness data as a JSON string
-    private val WELLNESS_DATA_LIST_KEY = stringPreferencesKey("wellness_data_list")
-
-    // Flow to get all saved wellness entries
+    // A flow that emits all saved wellness entries, sorted with the newest first.
     val allWellnessData: Flow<List<WellnessData>> = context.dataStore.data
         .map { preferences ->
-            val jsonString = preferences[WELLNESS_DATA_LIST_KEY] ?: "[]"
-            // Define the type for deserialization
+            val jsonString = preferences[wellnessDataListKey] ?: "[]"
             val type = object : TypeToken<List<WellnessData>>() {}.type
-            // Ensure the list is sorted by date ascending
             val list: List<WellnessData> = gson.fromJson(jsonString, type)
-            list.sortedBy { it.timestamp }
+            list.sortedByDescending { it.timestamp }
         }
 
-    // Function to add a new wellness entry
+    /**
+     * Adds a new wellness data entry to the list.
+     */
     suspend fun addWellnessData(wellnessData: WellnessData) {
-        // This is a high-visibility error log. If this function is called, you will see this.
-        Log.d("WellnessDataRepository", "ADDING/UPDATING DATA: $wellnessData")
+        Log.d("WellnessDataRepository", "Adding new data for date: ${wellnessData.timestamp}")
         context.dataStore.edit { preferences ->
-            // Retrieve the current list
-            val currentJson = preferences[WELLNESS_DATA_LIST_KEY] ?: "[]"
-            val type = object : TypeToken<List<WellnessData>>() {}.type
-            val currentList: MutableList<WellnessData> = gson.fromJson(currentJson, type)
-
-            // --- MODIFIED LOGIC ---
-            // Find the index of an entry with the same date (timestamp)
-            val existingIndex = currentList.indexOfFirst { it.timestamp == wellnessData.timestamp }
-
-            if (existingIndex != -1) {
-                // If an entry for today exists, overwrite it
-                Log.d("WellnessDataRepository", "Overwriting data for date: ${wellnessData.timestamp}")
-                currentList[existingIndex] = wellnessData
-            } else {
-                // Otherwise, add the new entry
-                Log.d("WellnessDataRepository", "Adding new data for date: ${wellnessData.timestamp}")
-                currentList.add(wellnessData)
-            }
-
-            // Save the updated list back to DataStore
-            preferences[WELLNESS_DATA_LIST_KEY] = gson.toJson(currentList)
+            val currentList = getMutableList(preferences)
+            currentList.add(wellnessData)
+            preferences[wellnessDataListKey] = gson.toJson(currentList)
         }
+    }
+
+    /**
+     * Updates an existing wellness data entry in the list.
+     */
+    suspend fun updateWellnessData(wellnessData: WellnessData) {
+        Log.d("WellnessDataRepository", "Updating data for entry ID: ${wellnessData.id}")
+        context.dataStore.edit { preferences ->
+            val currentList = getMutableList(preferences)
+            val index = currentList.indexOfFirst { it.id == wellnessData.id }
+            if (index != -1) {
+                currentList[index] = wellnessData
+                preferences[wellnessDataListKey] = gson.toJson(currentList)
+            } else {
+                Log.w("WellnessDataRepository", "Update failed: Entry with ID ${wellnessData.id} not found.")
+            }
+        }
+    }
+
+    /**
+     * Retrieves a single wellness data entry by its unique ID.
+     * This function resolves the "Unresolved reference" error.
+     */
+    suspend fun getWellnessDataById(id: String): WellnessData? {
+        val currentList = allWellnessData.first()
+        return currentList.find { it.id == id }
     }
 
     /**
@@ -73,8 +74,16 @@ class WellnessDataRepository(private val context: Context) {
     suspend fun clearAllData() {
         Log.w("WellnessDataRepository", "CLEARING ALL WELLNESS DATA")
         context.dataStore.edit { preferences ->
-            // Overwrite the existing data with an empty JSON array
-            preferences[WELLNESS_DATA_LIST_KEY] = "[]"
+            preferences[wellnessDataListKey] = "[]"
         }
+    }
+
+    /**
+     * Helper function to retrieve and deserialize the current list from preferences.
+     */
+    private fun getMutableList(preferences: Preferences): MutableList<WellnessData> {
+        val currentJson = preferences[wellnessDataListKey] ?: "[]"
+        val type = object : TypeToken<MutableList<WellnessData>>() {}.type
+        return gson.fromJson(currentJson, type)
     }
 }

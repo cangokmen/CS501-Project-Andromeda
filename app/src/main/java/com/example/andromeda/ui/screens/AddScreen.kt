@@ -20,23 +20,22 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.andromeda.ui.theme.AndromedaTheme
 import com.example.andromeda.viewmodels.AddViewModel
 import kotlin.math.roundToInt
+import kotlin.text.isNotBlank
 
 
 @Composable
 fun AddScreen(
     selectedQuestions: Set<String>,
-    currentUserEmail: String?,
-    // The timestamp of the entry to be edited, if any
+    // The ID or date of the entry to be edited/added, if any
     wellnessDataId: String? = null,
     onSaveComplete: () -> Unit,
     viewModel: AddViewModel = viewModel(
-        // A unique key ensures the correct ViewModel instance
-        key = selectedQuestions.toString() + (currentUserEmail ?: "") + (wellnessDataId ?: ""),
+        // **FIX**: A simpler, unique key ensures the correct ViewModel instance is created.
+        key = wellnessDataId ?: "new_entry",
         factory = AddViewModel.Factory(
             LocalContext.current.applicationContext as Application,
             selectedQuestions,
-            currentUserEmail,
-            wellnessDataId // Pass the ID to the factory
+            wellnessDataId // Pass the ID/date to the factory
         )
     )
 ) {
@@ -44,14 +43,11 @@ fun AddScreen(
     val isWeightEntered = uiState.weight.isNotBlank()
 
     if (uiState.showSaveConfirmation) {
-        // --- MODIFIED: The onConfirm lambda now handles navigation ---
         SaveConfirmationDialog(
             onConfirm = {
-                viewModel.dismissSaveConfirmation()
-                // If this is an edit or past entry, complete the action (navigate back).
-                if (wellnessDataId != null) {
-                    onSaveComplete()
-                }
+                // The ViewModel no longer handles navigation.
+                // onSaveComplete is called directly to pop the back stack.
+                onSaveComplete()
             }
         )
     }
@@ -63,30 +59,24 @@ fun AddScreen(
                 .padding(paddingValues)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            // --- MODIFIED: Increased spacing from 16.dp to 24.dp ---
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // --- MODIFIED: Title changes based on edit mode ---
             Text(
                 if (uiState.isEditing) "Edit Entry" else "Add Entry",
                 style = MaterialTheme.typography.headlineMedium
             )
 
-
+            // **FIX**: Updated label to "kg"
             WeightInput(
                 weight = uiState.weight,
                 onWeightChange = viewModel::onWeightChange
             )
 
-            // Define the order of questions to ensure consistency
             val questionOrder = listOf("DIET", "ACTIVITY", "SLEEP", "WATER", "PROTEIN")
-            // Filter the ordered list by the user's selection
             val visibleQuestions = questionOrder.filter { it in selectedQuestions }
 
-            // Loop through the visible questions and assign numbers dynamically
             visibleQuestions.forEachIndexed { index, questionKey ->
                 val questionNumber = index + 1
-
                 when (questionKey) {
                     "DIET" -> WellnessRatingSlider(
                         label = "Q$questionNumber: How would you rate your diet?",
@@ -119,7 +109,6 @@ fun AddScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             FloatingActionButton(
-                // --- MODIFIED: `saveEntry` no longer needs the callback ---
                 onClick = { if (isWeightEntered) viewModel.saveEntry() },
                 containerColor = if (isWeightEntered) Color(0xFF4CAF50) else Color(0xFFA5D6A7),
                 contentColor = Color.White
@@ -149,7 +138,7 @@ fun WeightInput(weight: String, onWeightChange: (String) -> Unit) {
     OutlinedTextField(
         value = weight,
         onValueChange = onWeightChange,
-        label = { Text("Weight (lbs)") },
+        label = { Text("Weight (kg)") }, // **FIX**: Changed label to kg
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         singleLine = true,
         modifier = Modifier.fillMaxWidth()
@@ -189,16 +178,13 @@ private fun WellnessRatingSlider(
     }
 }
 
-
 @Preview(showBackground = true)
 @Composable
 fun AddScreenPreview() {
     AndromedaTheme(darkTheme = false){
-        // Example: If only these 3 are selected, they will be numbered Q1, Q2, Q3
-        AddScreen(selectedQuestions = setOf("DIET", "SLEEP", "WATER"),
-            currentUserEmail = null,
-            onSaveComplete = {} // Provide an empty lambda for preview
+        AddScreen(
+            selectedQuestions = setOf("DIET", "SLEEP", "WATER"),
+            onSaveComplete = {}
         )
-
     }
 }

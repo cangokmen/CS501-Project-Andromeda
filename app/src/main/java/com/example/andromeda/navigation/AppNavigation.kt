@@ -13,14 +13,14 @@ import com.example.andromeda.ui.screens.AddScreen
 import com.example.andromeda.ui.screens.ChatbotScreen
 import com.example.andromeda.ui.screens.HistoryScreen
 import com.example.andromeda.ui.screens.HomeScreen
+import com.example.andromeda.ui.screens.RegisterScreen
 import com.example.andromeda.ui.screens.SettingsScreen
-import com.example.andromeda.ui.screens.LoginScreen
+import com.example.andromeda.viewmodels.AuthViewModel
 
 sealed class Screen(val route: String) {
-    object Login : Screen("login")
+    object Register : Screen("register")
     object Home : Screen("home")
     object History : Screen("history")
-    // --- MODIFIED: Add a new route for editing that includes the ID ---
     object Add : Screen("add")
     object EditEntry : Screen("edit/{wellnessDataId}") {
         fun createRoute(wellnessDataId: String) = "edit/$wellnessDataId"
@@ -41,20 +41,21 @@ fun AppNavHost(
     selectedQuestions: Set<String>,
     onSetQuestions: (Set<String>) -> Unit,
     onLogout: () -> Unit,
-    isLoggedIn: Boolean,
-    currentUserEmail: String?
+    hasProfile: Boolean,
+    authViewModel: AuthViewModel // <-- ADDED: Pass the shared ViewModel
 ) {
     NavHost(
         navController = navController,
-        startDestination = if (isLoggedIn) Screen.Home.route else Screen.Login.route,
+        startDestination = if (hasProfile) Screen.Home.route else Screen.Register.route,
         modifier = modifier
     ) {
-        // LOGIN
-        composable(Screen.Login.route) {
-            LoginScreen(
-                onLoggedIn = {
+        // REGISTER SCREEN
+        composable(Screen.Register.route) {
+            RegisterScreen(
+                authViewModel = authViewModel, // <-- PASS: Use the shared ViewModel
+                onRegistrationSuccess = {
                     navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                        popUpTo(Screen.Register.route) { inclusive = true }
                     }
                 }
             )
@@ -62,15 +63,13 @@ fun AppNavHost(
 
         // HOME
         composable(Screen.Home.route) {
-            HomeScreen(currentUserEmail = currentUserEmail)
+            HomeScreen()
         }
 
         // HISTORY
         composable(Screen.History.route) {
             HistoryScreen(
                 selectedQuestions = selectedQuestions,
-                currentUserEmail = currentUserEmail,
-                // --- MODIFIED: Provide the navigation logic for the edit action ---
                 onEditEntry = { wellnessDataId ->
                     navController.navigate(Screen.EditEntry.createRoute(wellnessDataId))
                 }
@@ -81,9 +80,7 @@ fun AppNavHost(
         composable(Screen.Add.route) {
             AddScreen(
                 selectedQuestions = selectedQuestions,
-                currentUserEmail = currentUserEmail,
                 wellnessDataId = null, // Explicitly null for a new entry
-                // For a new entry, just pop back to the previous screen (likely Home)
                 onSaveComplete = { navController.popBackStack() }
             )
         }
@@ -96,9 +93,7 @@ fun AppNavHost(
             val wellnessDataId = backStackEntry.arguments?.getString("wellnessDataId")
             AddScreen(
                 selectedQuestions = selectedQuestions,
-                currentUserEmail = currentUserEmail,
-                wellnessDataId = wellnessDataId, // Pass the ID to the AddScreen
-                // --- MODIFIED: On save, pop back to the History screen ---
+                wellnessDataId = wellnessDataId,
                 onSaveComplete = { navController.popBackStack() }
             )
         }

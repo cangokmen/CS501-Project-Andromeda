@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -57,7 +56,6 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     selectedQuestions: Set<String>,
-    currentUserEmail: String?,
     // Callback to navigate to the Add/Edit screen
     onEditEntry: (String) -> Unit
 ) {
@@ -65,20 +63,18 @@ fun HistoryScreen(
     val repository = remember { WellnessDataRepository(context) }
     val allWellnessData by repository.allWellnessData.collectAsState(initial = emptyList())
 
-    // --- MODIFIED: State to hold the date for the add/edit overlay ---
+    // State to hold the date for the add/edit overlay
     var editingDate by remember { mutableStateOf<String?>(null) }
     // State for managing the DatePickerDialog
     var showDatePicker by remember { mutableStateOf(false) }
 
-    // Use a Box to allow the AddScreen to overlay the HistoryScreen
     Box(modifier = Modifier.fillMaxSize()) {
-        // --- The HistoryScreen content is now the base layer ---
+        // The HistoryScreen content is the base layer
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // --- MODIFICATION AREA: Replaced IconButton with a standard Button ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -95,18 +91,11 @@ fun HistoryScreen(
                 }
             }
 
-            // Filter to this user's data (if we know the email)
-            val visibleData = remember(allWellnessData, currentUserEmail) {
-                if (currentUserEmail.isNullOrBlank()) {
-                    allWellnessData
-                } else {
-                    allWellnessData.filter { it.userEmail == currentUserEmail }
-                }
-            }
+            // **FIX 1**: The `visibleData` variable is no longer needed, we can use `allWellnessData` directly.
 
             // Collapse multiple entries on the same date -> keep latest one per day
-            val perDayLatest: List<WellnessData> = remember(visibleData) {
-                visibleData
+            val perDayLatest: List<WellnessData> = remember(allWellnessData) {
+                allWellnessData
                     .groupBy { it.timestamp.take(10) }   // group by yyyy-MM-dd
                     .map { (_, list) -> list.last() }    // keep last entry for that date
                     .sortedByDescending { it.timestamp } // newest day first
@@ -120,8 +109,8 @@ fun HistoryScreen(
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(perDayLatest) { data ->
-                        // --- MODIFIED: The edit icon now also sets the editingDate state ---
-                        WellnessDataCard(data = data, onEdit = { editingDate = data.timestamp })
+                        // The onEdit lambda from WellnessDataCard now calls the onEditEntry from the NavHost
+                        WellnessDataCard(data = data, onEdit = { onEditEntry(data.id.toString()) })
                     }
                 }
             }
@@ -136,11 +125,8 @@ fun HistoryScreen(
                         onClick = {
                             showDatePicker = false
                             datePickerState.selectedDateMillis?.let { millis ->
-                                // Use older Date and SimpleDateFormat for API 24 compatibility
                                 val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                                 val selectedDate = formatter.format(Date(millis))
-
-                                // Set the editingDate to show the AddScreen overlay
                                 editingDate = selectedDate
                             }
                         }
@@ -158,7 +144,6 @@ fun HistoryScreen(
             }
         }
 
-        // --- ADDED: AnimatedVisibility for the Add/Edit screen overlay ---
         AnimatedVisibility(
             visible = editingDate != null,
             enter = slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }),
@@ -166,9 +151,7 @@ fun HistoryScreen(
         ) {
             AddScreen(
                 selectedQuestions = selectedQuestions,
-                currentUserEmail = currentUserEmail,
                 wellnessDataId = editingDate,
-                // When saving is complete, simply reset the editingDate to hide the AddScreen
                 onSaveComplete = { editingDate = null }
             )
         }
@@ -179,20 +162,18 @@ fun HistoryScreen(
 @SuppressLint("SimpleDateFormat")
 @Composable
 fun WellnessDataCard(data: WellnessData, onEdit: () -> Unit) {
-    // Formatter for a more readable date
     val date = remember(data.timestamp) {
         try {
-            // Use SimpleDateFormat for backward compatibility
             val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val outputFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
             val parsedDate = inputFormat.parse(data.timestamp.take(10))
             if (parsedDate != null) {
                 outputFormat.format(parsedDate)
             } else {
-                data.timestamp.take(10) // Fallback if parsing fails
+                data.timestamp.take(10)
             }
         } catch (e: Exception) {
-            data.timestamp.take(10) // Fallback to original format on any error
+            data.timestamp.take(10)
         }
     }
 
@@ -202,7 +183,6 @@ fun WellnessDataCard(data: WellnessData, onEdit: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -222,11 +202,11 @@ fun WellnessDataCard(data: WellnessData, onEdit: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        "${data.weight} lbs",
+                        // **FIX 3**: Changed "lbs" to "kg" to match the rest of the app.
+                        "${data.weight} kg",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-                    // --- ADDED: Edit Button ---
                     IconButton(onClick = onEdit) {
                         Icon(
                             imageVector = Icons.Default.Edit,
@@ -239,16 +219,12 @@ fun WellnessDataCard(data: WellnessData, onEdit: () -> Unit) {
 
             Divider(modifier = Modifier.padding(vertical = 12.dp))
 
-            // Metrics Grid
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-
                 if (data.dietRating != null || data.activityLevel != null) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Box(modifier = Modifier.weight(1f)) {
                             data.dietRating?.let {
                                 MetricItem(painterRes = R.drawable.diet, label = "Diet", value = "$it/10")
@@ -262,9 +238,7 @@ fun WellnessDataCard(data: WellnessData, onEdit: () -> Unit) {
                     }
                 }
                 if (data.sleepHours != null || data.waterIntake != null) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Box(modifier = Modifier.weight(1f)) {
                             data.sleepHours?.let {
                                 MetricItem(painterRes = R.drawable.sleep, label = "Sleep", value = "$it/10")
@@ -278,9 +252,7 @@ fun WellnessDataCard(data: WellnessData, onEdit: () -> Unit) {
                     }
                 }
                 if (data.proteinIntake != null) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Box(modifier = Modifier.weight(1f)) {
                             MetricItem(
                                 painterRes = R.drawable.protein,
@@ -288,7 +260,7 @@ fun WellnessDataCard(data: WellnessData, onEdit: () -> Unit) {
                                 value = "${data.proteinIntake}/10"
                             )
                         }
-                        Spacer(modifier = Modifier.weight(1f)) // Add spacer to keep alignment
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }

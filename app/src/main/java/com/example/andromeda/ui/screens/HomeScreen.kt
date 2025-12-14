@@ -43,7 +43,6 @@ import java.util.Locale
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HomeScreen(
-    currentUserEmail: String?,
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModel.Factory(LocalContext.current.applicationContext as Application)
     )
@@ -53,16 +52,10 @@ fun HomeScreen(
     val allWellnessData by repository.allWellnessData.collectAsState(initial = emptyList())
     val uiState by viewModel.uiState.collectAsState()
 
-    // 1) Filter to current user
-    val visibleData = remember(allWellnessData, currentUserEmail) {
-        if (currentUserEmail.isNullOrBlank()) allWellnessData
-        else allWellnessData.filter { it.userEmail == currentUserEmail }
-    }
-
     // 2) Collapse multiple entries on the same date -> keep latest per day
-    val dailyData = remember(visibleData) {
-        visibleData
-            .groupBy { it.timestamp.take(10) }   // yyyy-MM-dd
+    val dailyData = remember(allWellnessData) {
+        allWellnessData
+            .groupBy { it.timestamp.take(10) } // yyyy-MM-dd
             .map { (_, list) -> list.last() }
             .sortedBy { it.timestamp }
     }

@@ -40,6 +40,8 @@ import com.example.andromeda.data.UserPreferencesRepository
 import com.example.andromeda.navigation.AppNavHost
 import com.example.andromeda.navigation.Screen
 import com.example.andromeda.ui.theme.AndromedaTheme
+import com.example.andromeda.viewmodels.AuthViewModel
+import com.example.andromeda.viewmodels.AuthState
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import com.google.gson.Gson
@@ -56,7 +58,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            // The MainApp composable now correctly calls your new theme
             MainApp()
         }
     }
@@ -64,19 +65,13 @@ class MainActivity : ComponentActivity() {
 
 class MainViewModel(
     private val userPreferencesRepository: UserPreferencesRepository,
-    // Add the Application parameter
     application: Application
 ) : ViewModel() {
 
-    // --- THIS IS NEW: Add the dataClient for sending data to the watch ---
     private val dataClient by lazy { Wearable.getDataClient(application) }
 
     init {
-        // Send the current question configuration to the watch as soon as the app starts.
-        // This ensures the watch is always in sync, even if it was offline
-        // when the settings were last changed on the phone.
         viewModelScope.launch {
-            // Fetch the most recent value from the Flow and send it.
             val currentQuestions = userPreferencesRepository.selectedQuestions.first()
             sendQuestionsToWatch(currentQuestions)
         }
@@ -87,13 +82,6 @@ class MainViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = false
-        )
-
-    val userEmail: StateFlow<String?> = userPreferencesRepository.userEmail
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = null
         )
 
     val useBiggerText: StateFlow<Boolean> = userPreferencesRepository.useBiggerText
@@ -110,14 +98,6 @@ class MainViewModel(
             initialValue = setOf("DIET", "ACTIVITY", "SLEEP")
         )
 
-    // login state
-    val isLoggedIn: StateFlow<Boolean> = userPreferencesRepository.isLoggedIn
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = false
-        )
-
     fun setTheme(isDark: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.saveThemePreference(isDark)
@@ -130,26 +110,18 @@ class MainViewModel(
         }
     }
 
-    // --- THIS FUNCTION IS MODIFIED ---
     fun setQuestions(questions: Set<String>) {
         viewModelScope.launch {
-            // 1. Save locally
             userPreferencesRepository.saveSelectedQuestions(questions)
-            // 2. Send to the watch
             sendQuestionsToWatch(questions)
         }
     }
 
-    // --- THIS IS THE NEW FUNCTION THAT SENDS THE DATA ---
     private fun sendQuestionsToWatch(questions: Set<String>) {
         viewModelScope.launch {
             try {
                 val putDataMapRequest = PutDataMapRequest.create("/config_questions").apply {
                     val questionsJson = Gson().toJson(questions)
-                    // --- ADD THIS LOG ---
-                    // This will print the exact JSON string being sent.
-                    println("PHONE: Sending questions to watch: $questionsJson")
-
                     dataMap.putString("KEY_QUESTIONS_LIST", questionsJson)
                     dataMap.putLong("KEY_TIMESTAMP", System.currentTimeMillis())
                 }
@@ -157,11 +129,9 @@ class MainViewModel(
 
                 dataClient.putDataItem(putDataRequest).apply {
                     addOnSuccessListener {
-                        // Log success
                         println("PHONE: Successfully sent /config_questions data item.")
                     }
                     addOnFailureListener { e ->
-                        // Log failure
                         println("PHONE: Failed to send /config_questions data item: $e")
                     }
                 }
@@ -171,21 +141,13 @@ class MainViewModel(
         }
     }
 
-
-    fun logout() {
-        viewModelScope.launch {
-            userPreferencesRepository.logoutUser()
-        }
-    }
-
-    // --- THIS FACTORY IS MODIFIED to pass the Application ---
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
                 return MainViewModel(
                     userPreferencesRepository = UserPreferencesRepository(application),
-                    application = application // Pass it here
+                    application = application
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
@@ -202,17 +164,23 @@ data class BottomNavItem(
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MainApp(
-    viewModel: MainViewModel = viewModel(
+    mainViewModel: MainViewModel = viewModel(
         factory = MainViewModel.Factory(
+            LocalContext.current.applicationContext as Application
+        )
+    ),
+    authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModel.Factory(
             LocalContext.current.applicationContext as Application
         )
     )
 ) {
-    val useDarkTheme by viewModel.isDarkTheme.collectAsState()
-    val useBiggerText by viewModel.useBiggerText.collectAsState()
-    val selectedQuestions by viewModel.selectedQuestions.collectAsState()
-    val currentUserEmail by viewModel.userEmail.collectAsState()
-    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    val useDarkTheme by mainViewModel.isDarkTheme.collectAsState()
+    val useBiggerText by mainViewModel.useBiggerText.collectAsState()
+    val selectedQuestions by mainViewModel.selectedQuestions.collectAsState()
+
+    // Get auth state directly from AuthViewModel
+    val authState by authViewModel.authState.collectAsState()
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -233,10 +201,9 @@ fun MainApp(
     ) {
         Scaffold(
             bottomBar = {
-                // --- MODIFIED: Conditionally show the BottomAppBar ---
-                if (currentRoute != Screen.Login.route) {
+                // Only show bottom bar if a profile exists
+                if (authState is AuthState.Authenticated) {
                     BottomAppBar(
-                        // Set the background color of the entire bar to our primary green color
                         containerColor = MaterialTheme.colorScheme.primary
                     ) {
                         val currentDestination = navBackStackEntry?.destination
@@ -254,15 +221,11 @@ fun MainApp(
                                 },
                                 icon = { Icon(item.icon, contentDescription = item.label) },
                                 label = { Text(item.label) },
-                                // Define the colors for the items on the green background
                                 colors = NavigationBarItemDefaults.colors(
-                                    // Color when tab is selected (e.g., White)
                                     selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                                     selectedTextColor = MaterialTheme.colorScheme.onPrimary,
-                                    // Color when tab is not selected (a muted version of the selected color)
                                     unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
                                     unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
-                                    // The ripple effect color when you tap the item
                                     indicatorColor = MaterialTheme.colorScheme.secondary
                                 )
                             )
@@ -271,10 +234,8 @@ fun MainApp(
                 }
             },
             floatingActionButton = {
-                // Hide FAB on Login and Chatbot screens
-                if (currentRoute != Screen.Chatbot.route &&
-                    currentRoute != Screen.Login.route
-                ) {
+                // Only show FAB if a profile exists
+                if (authState is AuthState.Authenticated && currentRoute != Screen.Chatbot.route) {
                     FloatingActionButton(
                         onClick = {
                             navController.navigate(Screen.Chatbot.route) {
@@ -284,33 +245,33 @@ fun MainApp(
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                        },
-                        // Set the background color of the button to your theme's secondary color
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        // Set the icon color to be readable on the secondary color
-                        contentColor = MaterialTheme.colorScheme.onSecondary
+                        }
                     ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.galaxy),
-                            contentDescription = "Chatbot"
-                        )
+                        Icon(painter = painterResource(id = R.drawable.galaxy), contentDescription = "Chatbot")
+
                     }
                 }
             }
         ) { innerPadding ->
-            AppNavHost(
-                navController = navController,
-                modifier = Modifier.padding(innerPadding),
-                isDarkTheme = useDarkTheme,
-                onSetTheme = viewModel::setTheme,
-                useBiggerText = useBiggerText,
-                onSetTextSize = viewModel::setTextSize,
-                selectedQuestions = selectedQuestions,
-                onSetQuestions = viewModel::setQuestions,
-                onLogout = viewModel::logout,
-                isLoggedIn = isLoggedIn,
-                currentUserEmail = currentUserEmail
-            )
+            // Show a loading indicator while checking auth status
+            if (authState is AuthState.Loading) {
+                // You can add a centered CircularProgressIndicator here
+            } else {
+                AppNavHost(
+                    navController = navController,
+                    modifier = Modifier.padding(innerPadding),
+                    isDarkTheme = useDarkTheme,
+                    onSetTheme = { mainViewModel.setTheme(it) },
+                    useBiggerText = useBiggerText,
+                    onSetTextSize = { mainViewModel.setTextSize(it) },
+                    selectedQuestions = selectedQuestions,
+                    onSetQuestions = { mainViewModel.setQuestions(it) },
+                    // Pass the hasProfile state directly to the NavHost
+                    hasProfile = authState is AuthState.Authenticated,
+                    onLogout = { authViewModel.logout() },
+                    authViewModel = authViewModel
+                )
+            }
         }
     }
 }

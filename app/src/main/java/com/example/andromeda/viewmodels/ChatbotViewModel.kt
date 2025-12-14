@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.andromeda.BuildConfig// --- ADDED: Import AuthRepository and UserProfile ---
+import com.example.andromeda.BuildConfig
 import com.example.andromeda.data.AuthRepository
 import com.example.andromeda.data.UserProfile
 import com.example.andromeda.data.WellnessData
@@ -33,7 +33,6 @@ data class ChatbotUiState(
     val userInput: String = ""
 )
 
-// --- MODIFIED: Added authRepository to the constructor ---
 class ChatbotViewModel(
     private val wellnessRepo: WellnessDataRepository,
     private val authRepo: AuthRepository
@@ -43,7 +42,7 @@ class ChatbotViewModel(
     val uiState: StateFlow<ChatbotUiState> = _uiState.asStateFlow()
 
     private val generativeModel = GenerativeModel(
-        modelName = "gemini-2.5-flash-lite", // Using a model suited for chat
+        modelName = "gemini-1.5-flash", // Updated model name
         apiKey = BuildConfig.GEMINI_API_KEY
     )
 
@@ -89,12 +88,11 @@ class ChatbotViewModel(
         // Launch a coroutine to get the response from the model
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Fetch user profile and wellness data
-                val currentUserEmail = authRepo.getCurrentUserEmail()
-                val userProfile = currentUserEmail?.let { authRepo.getUserProfile(it) }
+                // --- FIX: Fetch the single user profile directly ---
+                val userProfile = authRepo.getUserProfile()
                 val wellnessData = wellnessRepo.allWellnessData.first()
 
-                // --- MODIFIED: Pass user profile to create the context prompt ---
+                // Create the context prompt with the fetched profile
                 val contextPrompt = createWellnessContextPrompt(wellnessData, userProfile)
 
                 // The chat object allows for multi-turn conversations
@@ -129,24 +127,25 @@ class ChatbotViewModel(
         }
     }
 
-    // --- MODIFIED: Creates a detailed prompt with the user's profile and historical data ---
+    // Creates a detailed prompt with the user's profile and historical data
     private fun createWellnessContextPrompt(data: List<WellnessData>, profile: UserProfile?): String {
         val userContext = if (profile != null) {
-            "The user's age is ${profile.age} and their target weight is ${profile.targetWeight} lbs."
+            // --- FIX: Updated the weight unit to match what is saved (kg) ---
+            "The user's name is ${profile.firstName}, age is ${profile.age}, and their target weight is ${profile.targetWeight} kg."
         } else {
-            "The user's profile information (age, target weight) is not available."
+            "The user's profile information (name, age, target weight) is not available."
         }
 
         val dataSummary = if (data.isEmpty()) {
             "The user has no wellness data logged yet."
         } else {
             data.takeLast(30).joinToString(separator = "\n") { entry ->
-                "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
+                "- Date: ${entry.timestamp}, Weight: ${entry.weight} kg, Diet: ${entry.dietRating ?: "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
             }
         }
 
         return """
-        You are a friendly and encouraging wellness assistant. The user will ask you questions about their health and progress.
+        You are a friendly and encouraging wellness assistant named 'Andy'. The user will ask you questions about their health and progress.
         Use the following user profile and historical wellness data to provide personalized, insightful, and supportive responses.
         Your goal is to help the user understand their trends and motivate them to achieve their goals.
         Keep your answers concise and easy to understand.
@@ -160,7 +159,7 @@ class ChatbotViewModel(
     }
 
 
-    // --- MODIFIED: Factory now provides both repositories ---
+    // Factory now provides both repositories
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ChatbotViewModel::class.java)) {

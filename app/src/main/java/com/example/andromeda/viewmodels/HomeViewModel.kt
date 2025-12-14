@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.andromeda.BuildConfig
-// --- ADDED: Import AuthRepository and UserProfile ---
 import com.example.andromeda.data.AuthRepository
 import com.example.andromeda.data.UserProfile
 import com.example.andromeda.data.WellnessData
@@ -23,10 +22,11 @@ import kotlinx.coroutines.withContext
 data class HomeUiState(
     val suggestions: List<String> = emptyList(), // Changed to List<String>
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    // Add user's first name to the state for a personalized greeting
+    val userFirstName: String? = null
 )
 
-// --- MODIFIED: Added authRepository to the constructor ---
 class HomeViewModel(
     private val wellnessRepo: WellnessDataRepository,
     private val authRepo: AuthRepository
@@ -35,13 +35,28 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
 
+    init {
+        // Load the user's name when the ViewModel is created
+        loadUserName()
+    }
+
+    private fun loadUserName() {
+        viewModelScope.launch {
+            val profile = authRepo.getUserProfile()
+            profile?.let {
+                _uiState.update { currentState ->
+                    currentState.copy(userFirstName = it.firstName)
+                }
+            }
+        }
+    }
+
     fun generateSuggestions() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                // Fetch user profile and wellness data in parallel
-                val currentUserEmail = authRepo.getCurrentUserEmail()
-                val userProfile = currentUserEmail?.let { authRepo.getUserProfile(it) }
+                // --- FIX: Fetch the single user profile directly ---
+                val userProfile = authRepo.getUserProfile()
                 val wellnessData = wellnessRepo.allWellnessData.first().takeLast(7) // Get last 7 entries
 
                 if (wellnessData.isEmpty()) {
@@ -49,12 +64,12 @@ class HomeViewModel(
                     return@launch
                 }
 
-                // --- MODIFIED: Pass user profile to the prompt creator ---
                 val prompt = createPrompt(wellnessData, userProfile)
 
                 val responseText = withContext(Dispatchers.IO) {
                     val generativeModel = GenerativeModel(
-                        modelName = "gemini-2.5-flash-lite",
+                        // --- FIX: Corrected model name and API key access ---
+                        modelName = "gemini-1.5-flash",
                         apiKey = BuildConfig.GEMINI_API_KEY
                     )
                     val response = generativeModel.generateContent(prompt)
@@ -75,16 +90,15 @@ class HomeViewModel(
         }
     }
 
-    // --- MODIFIED: createPrompt now accepts a UserProfile ---
     private fun createPrompt(data: List<WellnessData>, profile: UserProfile?): String {
         val dataSummary = data.joinToString(separator = "\n") { entry ->
             "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: "N/A"}, " +
                     "Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
         }
 
-        // --- MODIFIED: Add user context to the prompt ---
+        // --- FIX: Updated the weight unit to kg to match the rest of the app ---
         val userContext = if (profile != null) {
-            "The user's age is ${profile.age} and their target weight is ${profile.targetWeight} lbs."
+            "The user's age is ${profile.age} and their target weight is ${profile.targetWeight} kg."
         } else {
             ""
         }
@@ -102,14 +116,13 @@ class HomeViewModel(
         """.trimIndent()
     }
 
-    // --- MODIFIED: Factory now provides both repositories ---
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
                 return HomeViewModel(
                     WellnessDataRepository(application),
-                    AuthRepository(application) // Provide AuthRepository
+                    AuthRepository(application)
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

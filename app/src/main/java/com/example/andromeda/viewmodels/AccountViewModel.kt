@@ -28,13 +28,9 @@ class AccountViewModel(private val repository: AuthRepository) : ViewModel() {
     private fun loadUserProfile() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val email = repository.getCurrentUserEmail()
-            if (email != null) {
-                val profile = repository.getUserProfile(email)
-                _uiState.update { it.copy(profile = profile, isLoading = false) }
-            } else {
-                _uiState.update { it.copy(isLoading = false) }
-            }
+            // Fetch the single user profile directly
+            val profile = repository.getUserProfile()
+            _uiState.update { it.copy(profile = profile, isLoading = false) }
         }
     }
 
@@ -49,6 +45,7 @@ class AccountViewModel(private val repository: AuthRepository) : ViewModel() {
                 it.copy(
                     profile = currentProfile.copy(
                         firstName = firstName ?: currentProfile.firstName,
+                        // This is the corrected line:
                         lastName = lastName ?: currentProfile.lastName,
                         age = age?.toIntOrNull() ?: currentProfile.age,
                         targetWeight = targetWeight?.toDoubleOrNull() ?: currentProfile.targetWeight
@@ -70,7 +67,13 @@ class AccountViewModel(private val repository: AuthRepository) : ViewModel() {
     private fun saveProfile() {
         viewModelScope.launch {
             _uiState.value.profile?.let {
-                repository.updateUserProfile(it)
+                // Use the updated function to save the profile
+                repository.createOrUpdateUserProfile(
+                    firstName = it.firstName,
+                    lastName = it.lastName,
+                    age = it.age,
+                    targetWeight = it.targetWeight
+                )
             }
         }
     }
