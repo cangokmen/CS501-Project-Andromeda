@@ -425,23 +425,6 @@ fun AccountSettings(
     var showResetDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    val seedData: () -> Unit = {
-        coroutineScope.launch {
-            val inputStream = context.resources.openRawResource(R.raw.sample_wellness_data)
-            val reader = InputStreamReader(inputStream)
-            val listType = object : TypeToken<List<WellnessData>>() {}.type
-            val dataToSeed: List<WellnessData> = Gson().fromJson(reader, listType)
-
-            dataToSeed.forEach { data ->
-                val roundedWeight = data.weight
-                    .toBigDecimal()
-                    .setScale(1, RoundingMode.HALF_UP)
-                    .toDouble()
-                wellnessDataRepository.addWellnessData(data.copy(weight = roundedWeight))
-            }
-        }
-    }
-
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
@@ -551,17 +534,14 @@ fun AccountSettings(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(onClick = { showResetDialog = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Reset Wellness History")
-            }
-            Button(onClick = { seedData() }, modifier = Modifier.fillMaxWidth()) {
-                Text("Seed Sample Data")
+                Text("DEV: Reset Wellness History")
             }
             Button(
                 onClick = { showLogoutDialog = true },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Logout & Delete Profile")
+                Text("DEV: Logout & Delete Profile")
             }
         }
     }
