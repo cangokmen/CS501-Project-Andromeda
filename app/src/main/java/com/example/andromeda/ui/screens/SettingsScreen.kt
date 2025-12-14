@@ -3,6 +3,10 @@ package com.example.andromeda.ui.screens
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -63,65 +67,82 @@ fun SettingsScreen(
 
 
     Surface(modifier = Modifier.fillMaxSize()) {
-        when (screenState) {
-            ScreenState.Main -> SettingsMainScreen(
-                onAccountClick = { screenState = ScreenState.Account },
-                onQuestionManagementClick = { screenState = ScreenState.QuestionManagement },
-                onPreferencesClick = { screenState = ScreenState.Preferences },
-                onAccessibilityClick = { screenState = ScreenState.Accessibility },
-                onHelpCenterClick = { screenState = ScreenState.HelpCenter },
-                onPrivacyPolicyClick = { screenState = ScreenState.PrivacyPolicy }
-            )
-            ScreenState.Account -> {
-                val profile = (authState as? AuthState.Authenticated)?.userProfile
-                if (profile != null) {
-                    AccountSettings(
-                        profile = profile,
-                        onUpdateProfile = { fn, ln, age, w, unit ->
-                            // This logic handles both profile updates and unit conversions
-                            coroutineScope.launch {
-                                // First, perform data conversion if the unit has changed
-                                if (unit != profile.weightUnit) {
-                                    wellnessDataRepository.convertAllWeightData(unit, authRepository)
-                                    // The conversion function already updates the profile,
-                                    // but we need to refresh the local state.
-                                    authViewModel.checkUserStatus()
-                                } else {
-                                    // If the unit is the same, just update the profile with the new values.
-                                    // The conversion function handles rounding, so we can pass the Double directly.
-                                    authViewModel.createProfile(fn, ln, age.toIntOrNull() ?: 0, w.toDoubleOrNull() ?: 0.0, unit)
-                                }
-                            }
-                        },
-                        onBackClicked = {
-                            authViewModel.checkUserStatus() // Refresh profile on exit
-                            screenState = ScreenState.Main
-                        },
-                        onLogoutClicked = onLogout
-                    )
+        AnimatedContent(
+            targetState = screenState,
+            label = "Settings Animation",
+            transitionSpec = {
+                // Define the slide animation
+                if (targetState.ordinal > initialState.ordinal) {
+                    // Navigating forward (e.g., Main -> Account)
+                    slideInHorizontally { fullWidth -> fullWidth } togetherWith
+                            slideOutHorizontally { fullWidth -> -fullWidth }
+                } else {
+                    // Navigating back (e.g., Account -> Main)
+                    slideInHorizontally { fullWidth -> -fullWidth } togetherWith
+                            slideOutHorizontally { fullWidth -> fullWidth }
                 }
             }
-            ScreenState.Preferences -> PreferencesSettings(
-                onBackClicked = { screenState = ScreenState.Main },
-                isDarkTheme = isDarkTheme,
-                onSetTheme = onSetTheme
-            )
-            ScreenState.Accessibility -> AccessibilitySettings(
-                onBackClicked = { screenState = ScreenState.Main },
-                useBiggerText = useBiggerText,
-                onSetTextSize = onSetTextSize
-            )
-            ScreenState.QuestionManagement -> QuestionManagementScreen(
-                onBackClicked = { screenState = ScreenState.Main },
-                selectedQuestions = selectedQuestions,
-                onSetQuestions = onSetQuestions
-            )
-            ScreenState.HelpCenter -> HelpCenterScreen (
-                onBackClicked = { screenState = ScreenState.Main }
-            )
-            ScreenState.PrivacyPolicy -> PrivacyPolicyScreen (
-                onBackClicked = { screenState = ScreenState.Main }
-            )
+        ) { state ->
+            when (state) {
+                ScreenState.Main -> SettingsMainScreen(
+                    onAccountClick = { screenState = ScreenState.Account },
+                    onQuestionManagementClick = { screenState = ScreenState.QuestionManagement },
+                    onPreferencesClick = { screenState = ScreenState.Preferences },
+                    onAccessibilityClick = { screenState = ScreenState.Accessibility },
+                    onHelpCenterClick = { screenState = ScreenState.HelpCenter },
+                    onPrivacyPolicyClick = { screenState = ScreenState.PrivacyPolicy }
+                )
+                ScreenState.Account -> {
+                    val profile = (authState as? AuthState.Authenticated)?.userProfile
+                    if (profile != null) {
+                        AccountSettings(
+                            profile = profile,
+                            onUpdateProfile = { fn, ln, age, w, unit ->
+                                // This logic handles both profile updates and unit conversions
+                                coroutineScope.launch {
+                                    // First, perform data conversion if the unit has changed
+                                    if (unit != profile.weightUnit) {
+                                        wellnessDataRepository.convertAllWeightData(unit, authRepository)
+                                        // The conversion function already updates the profile,
+                                        // but we need to refresh the local state.
+                                        authViewModel.checkUserStatus()
+                                    } else {
+                                        // If the unit is the same, just update the profile with the new values.
+                                        // The conversion function handles rounding, so we can pass the Double directly.
+                                        authViewModel.createProfile(fn, ln, age.toIntOrNull() ?: 0, w.toDoubleOrNull() ?: 0.0, unit)
+                                    }
+                                }
+                            },
+                            onBackClicked = {
+                                authViewModel.checkUserStatus() // Refresh profile on exit
+                                screenState = ScreenState.Main
+                            },
+                            onLogoutClicked = onLogout
+                        )
+                    }
+                }
+                ScreenState.Preferences -> PreferencesSettings(
+                    onBackClicked = { screenState = ScreenState.Main },
+                    isDarkTheme = isDarkTheme,
+                    onSetTheme = onSetTheme
+                )
+                ScreenState.Accessibility -> AccessibilitySettings(
+                    onBackClicked = { screenState = ScreenState.Main },
+                    useBiggerText = useBiggerText,
+                    onSetTextSize = onSetTextSize
+                )
+                ScreenState.QuestionManagement -> QuestionManagementScreen(
+                    onBackClicked = { screenState = ScreenState.Main },
+                    selectedQuestions = selectedQuestions,
+                    onSetQuestions = onSetQuestions
+                )
+                ScreenState.HelpCenter -> HelpCenterScreen (
+                    onBackClicked = { screenState = ScreenState.Main }
+                )
+                ScreenState.PrivacyPolicy -> PrivacyPolicyScreen (
+                    onBackClicked = { screenState = ScreenState.Main }
+                )
+            }
         }
     }
 }
@@ -292,7 +313,6 @@ private fun HelpCenterScreen(onBackClicked: () -> Unit) {
     }
 }
 
-// --- NEW PRIVACY POLICY SCREEN ---
 @Composable
 private fun PrivacyPolicyScreen(onBackClicked: () -> Unit) {
     Column(
