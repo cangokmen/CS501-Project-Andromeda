@@ -53,6 +53,8 @@ import java.math.RoundingMode
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Calendar
+import java.util.TimeZone
 
 // --- CONVERSION CONSTANT ---
 private const val KG_TO_LBS = 2.20462
@@ -136,9 +138,10 @@ fun HistoryScreen(
                         onClick = {
                             showDatePicker = false
                             datePickerState.selectedDateMillis?.let { millis ->
-                                val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                                val selectedDate = formatter.format(Date(millis))
-                                editingDate = selectedDate
+                                val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+                                    timeZone = TimeZone.getTimeZone("UTC")
+                                }
+                                editingDate = formatter.format(Date(millis))
                             }
                         }
                     ) {
@@ -176,16 +179,26 @@ fun HistoryScreen(
 fun WellnessDataCard(data: WellnessData, weightUnit: String, onEdit: () -> Unit) {
     val date = remember(data.timestamp) {
         try {
-            val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            // The input string is in UTC format ("yyyy-MM-dd").
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            // Once parsed, we format it for display using the device's default timezone.
             val outputFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+
             val parsedDate = inputFormat.parse(data.timestamp.take(10))
+
             if (parsedDate != null) {
-                outputFormat.format(parsedDate)
+                val calendar = Calendar.getInstance().apply {
+                    time = parsedDate
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
+                outputFormat.format(calendar.time)
             } else {
-                data.timestamp.take(10)
+                data.timestamp.take(10) // Fallback
             }
         } catch (e: Exception) {
-            data.timestamp.take(10)
+            data.timestamp.take(10) // Fallback on error
         }
     }
 

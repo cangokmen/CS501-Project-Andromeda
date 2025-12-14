@@ -19,6 +19,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 import java.math.BigDecimal
+import java.util.TimeZone // Import TimeZone
 
 
 // --- CONVERSION CONSTANTS ---
@@ -137,6 +138,11 @@ class AddViewModel(
                 val timestamp: String
                 val entryId: String
 
+                // Create a formatter that is explicitly in UTC to avoid timezone shifts
+                val utcFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }
+
                 if (currentUiState.isEditing) {
                     val existingEntry = repository.getWellnessDataById(wellnessDataId!!)!!
                     entryId = existingEntry.id
@@ -144,9 +150,11 @@ class AddViewModel(
                 } else {
                     entryId = java.util.UUID.randomUUID().toString()
                     timestamp = if (wellnessDataId != null) {
+                        // If a date string is passed, use it directly
                         wellnessDataId
                     } else {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                        // For a new entry for today, format today's date in UTC
+                        utcFormatter.format(Date())
                     }
                 }
 
@@ -204,4 +212,3 @@ class AddViewModel(
         }
     }
 }
-
