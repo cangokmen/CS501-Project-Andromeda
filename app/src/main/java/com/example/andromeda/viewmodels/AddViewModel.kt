@@ -30,7 +30,6 @@ data class AddScreenUiState(
 class AddViewModel(
     private val repository: WellnessDataRepository,
     private val selectedQuestions: Set<String>,
-    // This is a String that can be an ID (for editing) or a date (for a new past entry)
     private val wellnessDataId: String?
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AddScreenUiState())
@@ -44,13 +43,8 @@ class AddViewModel(
 
     private fun loadWellnessData(idOrDate: String) {
         viewModelScope.launch {
-            // **FIX**: We now directly call getWellnessDataById with the String.
-            // If it returns an entry, we are in edit mode.
-            // If it returns null, we assume idOrDate was a date for a new entry.
             val entry = repository.getWellnessDataById(idOrDate)
-
             if (entry != null) {
-                // We found an entry, so we are in "Edit" mode.
                 _uiState.update {
                     it.copy(
                         weight = entry.weight.toString(),
@@ -63,7 +57,6 @@ class AddViewModel(
                     )
                 }
             }
-            // No 'else' block needed. If entry is null, we stay in the default "Add" mode.
         }
     }
 
@@ -97,28 +90,24 @@ class AddViewModel(
         val weightValue = currentUiState.weight.toDoubleOrNull()
         if (weightValue != null) {
             viewModelScope.launch {
-                // Determine the correct timestamp.
                 val timestamp: String
                 val entryId: String
 
                 if (currentUiState.isEditing) {
-                    // Editing an existing entry. Use its ID and original timestamp.
                     val existingEntry = repository.getWellnessDataById(wellnessDataId!!)!!
                     entryId = existingEntry.id
                     timestamp = existingEntry.timestamp
                 } else {
-                    // Creating a new entry. Generate a new ID.
                     entryId = java.util.UUID.randomUUID().toString()
-                    // Timestamp is either the passed-in date or today's date.
                     timestamp = if (wellnessDataId != null) {
-                        wellnessDataId // Use the date from HistoryScreen
+                        wellnessDataId
                     } else {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) // Use today
+                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                     }
                 }
 
                 val entryToSave = WellnessData(
-                    id = entryId, // **FIX**: Now correctly uses a String ID
+                    id = entryId,
                     timestamp = timestamp,
                     weight = weightValue,
                     dietRating = if ("DIET" in selectedQuestions) currentUiState.dietRating.roundToInt() else null,
@@ -138,6 +127,22 @@ class AddViewModel(
             }
         }
     }
+
+    // --- NEW FUNCTION ---
+    /**
+     * Deletes the current entry if it's in edit mode.
+     * It triggers the onSaveComplete callback which closes the dialog.
+     */
+    fun deleteEntry() {
+        viewModelScope.launch {
+            if (uiState.value.isEditing && wellnessDataId != null) {
+                repository.deleteWellnessData(wellnessDataId)
+                // We re-use the save confirmation logic to dismiss the dialog
+                _uiState.update { it.copy(showSaveConfirmation = true) }
+            }
+        }
+    }
+    // --- END NEW FUNCTION ---
 
     fun dismissSaveConfirmation() {
         _uiState.update { it.copy(showSaveConfirmation = false) }

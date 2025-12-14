@@ -2,13 +2,15 @@ package com.example.andromeda.ui.screens
 
 import android.app.Application
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,119 +28,158 @@ import kotlin.text.isNotBlank
 @Composable
 fun AddScreen(
     selectedQuestions: Set<String>,
-    // The ID or date of the entry to be edited/added, if any
     wellnessDataId: String? = null,
     onSaveComplete: () -> Unit,
     viewModel: AddViewModel = viewModel(
-        // **FIX**: A simpler, unique key ensures the correct ViewModel instance is created.
         key = wellnessDataId ?: "new_entry",
         factory = AddViewModel.Factory(
             LocalContext.current.applicationContext as Application,
             selectedQuestions,
-            wellnessDataId // Pass the ID/date to the factory
+            wellnessDataId
         )
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isWeightEntered = uiState.weight.isNotBlank()
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     if (uiState.showSaveConfirmation) {
-        SaveConfirmationDialog(
-            onConfirm = {
-                // The ViewModel no longer handles navigation.
-                // onSaveComplete is called directly to pop the back stack.
-                onSaveComplete()
+        // This is now triggered by both Save and Delete
+        LaunchedEffect(Unit) {
+            onSaveComplete()
+        }
+    }
+
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("Delete Entry") },
+            text = { Text("Are you sure you want to permanently delete this entry?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteEntry()
+                        showDeleteConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel")
+                }
             }
         )
     }
 
-    Scaffold { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            Text(
-                if (uiState.isEditing) "Edit Entry" else "Add Entry",
-                style = MaterialTheme.typography.headlineMedium
-            )
-
-            // **FIX**: Updated label to "kg"
-            WeightInput(
-                weight = uiState.weight,
-                onWeightChange = viewModel::onWeightChange
-            )
-
-            val questionOrder = listOf("DIET", "ACTIVITY", "SLEEP", "WATER", "PROTEIN")
-            val visibleQuestions = questionOrder.filter { it in selectedQuestions }
-
-            visibleQuestions.forEachIndexed { index, questionKey ->
-                val questionNumber = index + 1
-                when (questionKey) {
-                    "DIET" -> WellnessRatingSlider(
-                        label = "Q$questionNumber: How would you rate your diet?",
-                        value = uiState.dietRating,
-                        onValueChange = viewModel::onDietRatingChange
-                    )
-                    "ACTIVITY" -> WellnessRatingSlider(
-                        label = "Q$questionNumber: How would you rate your activity level?",
-                        value = uiState.activityRating,
-                        onValueChange = viewModel::onActivityRatingChange
-                    )
-                    "SLEEP" -> WellnessRatingSlider(
-                        label = "Q$questionNumber: How would you rate your sleep?",
-                        value = uiState.sleepHours,
-                        onValueChange = viewModel::onSleepHoursChange
-                    )
-                    "WATER" -> WellnessRatingSlider(
-                        label = "Q$questionNumber: How would you rate your water intake?",
-                        value = uiState.waterIntake,
-                        onValueChange = viewModel::onWaterIntakeChange
-                    )
-                    "PROTEIN" -> WellnessRatingSlider(
-                        label = "Q$questionNumber: How would you rate your protein intake?",
-                        value = uiState.proteinIntake,
-                        onValueChange = viewModel::onProteinIntakeChange
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            FloatingActionButton(
-                onClick = { if (isWeightEntered) viewModel.saveEntry() },
-                containerColor = if (isWeightEntered) Color(0xFF4CAF50) else Color(0xFFA5D6A7),
-                contentColor = Color.White
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Scaffold { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(paddingValues)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                Icon(Icons.Default.Check, contentDescription = "Save Entry")
+                Text(
+                    if (uiState.isEditing) "Edit Entry" else "Add Entry",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+
+                WeightInput(
+                    weight = uiState.weight,
+                    onWeightChange = viewModel::onWeightChange
+                )
+
+                val questionOrder = listOf("DIET", "ACTIVITY", "SLEEP", "WATER", "PROTEIN")
+                val visibleQuestions = questionOrder.filter { it in selectedQuestions }
+
+                visibleQuestions.forEachIndexed { index, questionKey ->
+                    val questionNumber = index + 1
+                    when (questionKey) {
+                        "DIET" -> WellnessRatingSlider(
+                            label = "Q$questionNumber: How would you rate your diet?",
+                            value = uiState.dietRating,
+                            onValueChange = viewModel::onDietRatingChange
+                        )
+                        "ACTIVITY" -> WellnessRatingSlider(
+                            label = "Q$questionNumber: How would you rate your activity level?",
+                            value = uiState.activityRating,
+                            onValueChange = viewModel::onActivityRatingChange
+                        )
+                        "SLEEP" -> WellnessRatingSlider(
+                            label = "Q$questionNumber: How would you rate your sleep?",
+                            value = uiState.sleepHours,
+                            onValueChange = viewModel::onSleepHoursChange
+                        )
+                        "WATER" -> WellnessRatingSlider(
+                            label = "Q$questionNumber: How would you rate your water intake?",
+                            value = uiState.waterIntake,
+                            onValueChange = viewModel::onWaterIntakeChange
+                        )
+                        "PROTEIN" -> WellnessRatingSlider(
+                            label = "Q$questionNumber: How would you rate your protein intake?",
+                            value = uiState.proteinIntake,
+                            onValueChange = viewModel::onProteinIntakeChange
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f, fill = false))
+
+                // --- ACTION BUTTONS ROW ---
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (uiState.isEditing) {
+                        // Show delete button only when editing
+                        FloatingActionButton(
+                            onClick = { showDeleteConfirmDialog = true },
+                            containerColor = Color(0xFFF55F5A),
+                            contentColor = Color.White
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Entry"
+                            )
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+
+                    FloatingActionButton(
+                        onClick = { if (isWeightEntered) viewModel.saveEntry() },
+                        containerColor = if (isWeightEntered) Color(0xFF4CAF50) else Color(0xFFA5D6A7),
+                        contentColor = Color.White
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = "Save Entry")
+                    }
+                }
             }
         }
     }
 }
 
-@Composable
-fun SaveConfirmationDialog(onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onConfirm,
-        title = { Text("Success!") },
-        text = { Text("Your entry has been saved.") },
-        confirmButton = {
-            Button(onClick = onConfirm) {
-                Text("OK")
-            }
-        }
-    )
-}
+
+// A confirmation dialog is no longer needed here, as we use a LaunchedEffect
+// to handle navigation, and a separate alert for deletion confirmation.
+
 
 @Composable
 fun WeightInput(weight: String, onWeightChange: (String) -> Unit) {
     OutlinedTextField(
         value = weight,
         onValueChange = onWeightChange,
-        label = { Text("Weight (kg)") }, // **FIX**: Changed label to kg
+        label = { Text("Weight (lb)") },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         singleLine = true,
         modifier = Modifier.fillMaxWidth()
@@ -188,3 +229,4 @@ fun AddScreenPreview() {
         )
     }
 }
+

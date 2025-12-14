@@ -60,6 +60,18 @@ class WellnessDataRepository(private val context: Context) {
     }
 
     /**
+     * Deletes a single wellness data entry by its unique ID.
+     */
+    suspend fun deleteWellnessData(id: String) {
+        Log.d("WellnessDataRepository", "Deleting entry with ID: $id")
+        context.dataStore.edit { preferences ->
+            val currentList = getMutableList(preferences)
+            currentList.removeIf { it.id == id }
+            preferences[wellnessDataListKey] = gson.toJson(currentList)
+        }
+    }
+
+    /**
      * Retrieves a single wellness data entry by its unique ID.
      * This function resolves the "Unresolved reference" error.
      */
