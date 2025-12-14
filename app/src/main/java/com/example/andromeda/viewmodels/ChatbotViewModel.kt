@@ -43,7 +43,7 @@ class ChatbotViewModel(
     val uiState: StateFlow<ChatbotUiState> = _uiState.asStateFlow()
 
     private val generativeModel = GenerativeModel(
-        modelName = "gemini-1.5-flash", // Updated model name
+        modelName = "gemini-2.5-flash-lite", // Updated model name
         apiKey = BuildConfig.GEMINI_API_KEY
     )
 
