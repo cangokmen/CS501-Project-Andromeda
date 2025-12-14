@@ -274,9 +274,7 @@ fun AccountSettings(
                 }
                 // Toggle edit mode
                 isEditing = !isEditing
-            }) {
-                Text(if (isEditing) "Save" else "Edit")
-            }
+            }) { Text(if (isEditing) "Save" else "Edit") }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
