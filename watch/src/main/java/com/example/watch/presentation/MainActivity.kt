@@ -2,6 +2,7 @@ package com.example.watch.presentation
 
 import android.app.Application
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.border
@@ -34,11 +35,14 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.example.watch.presentation.data.WatchDataRepository
 import com.example.watch.presentation.theme.AndromedaTheme
+import com.google.android.gms.wearable.MessageClient
+import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
+// REMOVED: import kotlinx.coroutines.tasks.await
+import kotlin.math.roundToInt
 
 // --- Data Models and State (Unchanged) ---
 data class WellnessCategory(val id: String, val icon: ImageVector, val label: String)
@@ -46,7 +50,8 @@ data class WatchUiState(
     val allCategories: List<WellnessCategory> = emptyList(),
     val selectedCategoryIds: Set<String> = emptySet(),
     val questionValues: Map<String, Int> = emptyMap(),
-    val currentScreen: Screen = Screen.Input
+    val currentScreen: Screen = Screen.Input,
+    val averageWeight: Int = 150 // Default initial value
 )
 enum class Screen { Input, CategorySelection }
 
@@ -54,10 +59,14 @@ enum class Screen { Input, CategorySelection }
 class WatchViewModel(
     application: Application,
     private val watchDataRepository: WatchDataRepository
-) : AndroidViewModel(application) {
+) : AndroidViewModel(application), MessageClient.OnMessageReceivedListener {
 
     private val _uiState = MutableStateFlow(WatchUiState())
     val uiState: StateFlow<WatchUiState> = _uiState.asStateFlow()
+
+    private val messageClient by lazy { Wearable.getMessageClient(application) }
+    private val nodeClient by lazy { Wearable.getNodeClient(application) }
+
 
     private val allWellnessCategories = listOf(
         WellnessCategory("DIET", Icons.Default.Fastfood, "Diet"),
@@ -68,6 +77,7 @@ class WatchViewModel(
     )
 
     init {
+        messageClient.addListener(this)
         viewModelScope.launch {
             watchDataRepository.selectedQuestions.collect { savedQuestionIds ->
                 _uiState.update { currentState ->
@@ -82,6 +92,37 @@ class WatchViewModel(
             }
         }
     }
+
+    override fun onCleared() {
+        super.onCleared()
+        messageClient.removeListener(this)
+    }
+
+
+    fun requestAverageWeight() {
+        Log.d("WatchViewModel", "Requesting average weight from phone.")
+        nodeClient.connectedNodes.addOnSuccessListener { nodes ->
+            nodes.firstOrNull()?.id?.let { nodeId ->
+                messageClient.sendMessage(nodeId, "/request_average_weight", byteArrayOf())
+                    .addOnSuccessListener { Log.d("WatchViewModel", "Request message sent successfully.") }
+                    .addOnFailureListener { e -> Log.e("WatchViewModel", "Failed to send request message.", e) }
+            }
+        }
+            .addOnFailureListener { e -> Log.e("WatchViewModel", "Failed to get connected nodes.", e) }
+    }
+
+    override fun onMessageReceived(messageEvent: MessageEvent) {
+        if (messageEvent.path == "/average_weight_response") {
+            val averageWeightStr = String(messageEvent.data)
+            Log.d("WatchViewModel", "Received average weight response: $averageWeightStr")
+            averageWeightStr.toDoubleOrNull()?.let {
+                _uiState.update { currentState ->
+                    currentState.copy(averageWeight = it.roundToInt())
+                }
+            }
+        }
+    }
+
 
     fun navigateTo(screen: Screen) {
         _uiState.update { it.copy(currentScreen = screen) }
@@ -168,6 +209,7 @@ fun CategorySelectionScreen(viewModel: WatchViewModel) {
             style = MaterialTheme.typography.titleMedium
         )
         Spacer(Modifier.height(16.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -214,8 +256,13 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
     val context = LocalContext.current
     val activity = (context as? ComponentActivity)
     val dataClient = remember { Wearable.getDataClient(context) }
-    val coroutineScope = rememberCoroutineScope()
-    var weight by remember { mutableIntStateOf(150) }
+    // No need for coroutineScope here for the submission button anymore
+    var weight by remember(uiState.averageWeight) { mutableIntStateOf(uiState.averageWeight) }
+
+    LaunchedEffect(Unit) {
+        viewModel.requestAverageWeight()
+    }
+
     val selectedCategories = remember(uiState.selectedCategoryIds, uiState.allCategories) {
         uiState.allCategories.filter { it.id in uiState.selectedCategoryIds }
     }
@@ -257,7 +304,6 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
 
             item {
                 Button(onClick = { viewModel.navigateTo(Screen.CategorySelection) }) {
-                    // CORRECTED: Added Modifier.fillMaxSize() to the Box for perfect centering
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -266,30 +312,31 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
                     }
                 }
             }
+
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(onClick = {
-                    coroutineScope.launch {
-                        try {
-                            val putDataMapRequest = PutDataMapRequest.create("/wellness_data").apply {
-                                dataMap.putDouble("KEY_WEIGHT", weight.toDouble())
-                                dataMap.putLong("KEY_TIMESTAMP", System.currentTimeMillis())
-                                val userRatings = uiState.questionValues
-                                dataMap.putInt("KEY_Q1", userRatings.getOrElse("DIET") { 0 })
-                                dataMap.putInt("KEY_Q2", userRatings.getOrElse("ACTIVITY") { 0 })
-                                dataMap.putInt("KEY_Q3", userRatings.getOrElse("SLEEP") { 0 })
-                                dataMap.putInt("KEY_Q4", userRatings.getOrElse("WATER") { 0 })
-                                dataMap.putInt("KEY_Q5", userRatings.getOrElse("PROTEIN") { 0 })
-                            }
-                            val putDataRequest = putDataMapRequest.asPutDataRequest().setUrgent()
-                            dataClient.putDataItem(putDataRequest).await()
+                    val putDataMapRequest = PutDataMapRequest.create("/wellness_data").apply {
+                        dataMap.putDouble("KEY_WEIGHT", weight.toDouble())
+                        dataMap.putLong("KEY_TIMESTAMP", System.currentTimeMillis())
+                        val userRatings = uiState.questionValues
+                        dataMap.putInt("KEY_Q1", userRatings.getOrElse("DIET") { 0 })
+                        dataMap.putInt("KEY_Q2", userRatings.getOrElse("ACTIVITY") { 0 })
+                        dataMap.putInt("KEY_Q3", userRatings.getOrElse("SLEEP") { 0 })
+                        dataMap.putInt("KEY_Q4", userRatings.getOrElse("WATER") { 0 })
+                        dataMap.putInt("KEY_Q5", userRatings.getOrElse("PROTEIN") { 0 })
+                    }
+                    val putDataRequest = putDataMapRequest.asPutDataRequest().setUrgent()
+                    dataClient.putDataItem(putDataRequest).apply {
+                        addOnSuccessListener {
+                            Log.d("WellnessInput", "Data sent successfully.")
                             activity?.finish()
-                        } catch (e: Exception) {
-                            println("WATCH: Error sending wellness data: $e")
+                        }
+                        addOnFailureListener { e ->
+                            Log.e("WellnessInput", "Error sending wellness data", e)
                         }
                     }
                 }) {
-                    // CORRECTED: Added Modifier.fillMaxSize() to the Box for perfect centering
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -316,7 +363,6 @@ fun ValueSelector(label: String, value: Int, onValueChange: (Int) -> Unit, range
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Button(onClick = { if (value > range.first) onValueChange(value - 1) }) {
-                // CORRECTED: Added Modifier.fillMaxSize() to the Box for perfect centering
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -332,7 +378,6 @@ fun ValueSelector(label: String, value: Int, onValueChange: (Int) -> Unit, range
                 color = color
             )
             Button(onClick = { if (value < range.last) onValueChange(value + 1) }) {
-                // CORRECTED: Added Modifier.fillMaxSize() to the Box for perfect centering
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
