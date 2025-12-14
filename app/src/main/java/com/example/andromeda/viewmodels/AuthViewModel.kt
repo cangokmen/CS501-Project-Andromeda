@@ -39,10 +39,10 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
         }
     }
 
-    fun createProfile(firstName: String, lastName: String, age: Int, targetWeight: Double) {
+    fun createProfile(firstName: String, lastName: String, age: Int, targetWeight: Double, weightUnit: WeightUnit) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            val result = authRepository.createOrUpdateUserProfile(firstName, lastName, age, targetWeight)
+            val result = authRepository.createOrUpdateUserProfile(firstName, lastName, age, targetWeight, weightUnit)
             result.onSuccess {
                 val profile = authRepository.getUserProfile()
                 _authState.value = AuthState.Authenticated(profile)

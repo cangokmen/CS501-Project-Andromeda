@@ -91,30 +91,35 @@ class HomeViewModel(
     }
 
     private fun createPrompt(data: List<WellnessData>, profile: UserProfile?): String {
+        // Determine the unit to display, defaulting to "kg"
+        val unit = profile?.weightUnit?.name?.lowercase() ?: "kg"
+
         val dataSummary = data.joinToString(separator = "\n") { entry ->
-            "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: "N/A"}, " +
+            // Include the dynamic unit in the data summary
+            "- Date: ${entry.timestamp}, Weight: ${entry.weight} $unit, Diet: ${entry.dietRating ?: "N/A"}, " +
                     "Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
         }
 
-        // --- FIX: Updated the weight unit to kg to match the rest of the app ---
         val userContext = if (profile != null) {
-            "The user's age is ${profile.age} and their target weight is ${profile.targetWeight} kg."
+            // Include the dynamic unit in the user profile context
+            "The user's age is ${profile.age} and their target weight is ${profile.targetWeight} $unit."
         } else {
             ""
         }
 
         return """
-        Based on the following user information and recent wellness data:
-        $userContext
-        
-        Recent Data:
-        $dataSummary
+    Based on the following user information and recent wellness data:
+    $userContext
+    
+    Recent Data:
+    $dataSummary
 
-        Please provide 3 very short, encouraging, and actionable suggestions or motivational tips to 
-        help them improve their habits. The tone should be positive and supportive. Format the output 
-        as a simple, un-numbered list, with each tip on a new line starting with a dash.
-        """.trimIndent()
+    Please provide 3 very short, encouraging, and actionable suggestions or motivational tips to 
+    help them improve their habits. The tone should be positive and supportive. Format the output 
+    as a simple, un-numbered list, with each tip on a new line starting with a dash.
+    """.trimIndent()
     }
+
 
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

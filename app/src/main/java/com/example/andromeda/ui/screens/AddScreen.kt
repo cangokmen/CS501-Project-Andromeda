@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.andromeda.ui.theme.AndromedaTheme
 import com.example.andromeda.viewmodels.AddViewModel
+import com.example.andromeda.viewmodels.AuthViewModel
+import com.example.andromeda.viewmodels.AuthState
 import kotlin.math.roundToInt
 import kotlin.text.isNotBlank
 
@@ -30,6 +32,10 @@ fun AddScreen(
     selectedQuestions: Set<String>,
     wellnessDataId: String? = null,
     onSaveComplete: () -> Unit,
+    // Add authViewModel to get the user's profile and their preferred unit
+    authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModel.Factory(LocalContext.current.applicationContext as Application)
+    ),
     viewModel: AddViewModel = viewModel(
         key = wellnessDataId ?: "new_entry",
         factory = AddViewModel.Factory(
@@ -39,6 +45,10 @@ fun AddScreen(
         )
     )
 ) {
+    // Get the auth state to access the user profile
+    val authState by authViewModel.authState.collectAsState()
+    val userProfile = (authState as? AuthState.Authenticated)?.userProfile
+
     val uiState by viewModel.uiState.collectAsState()
     val isWeightEntered = uiState.weight.isNotBlank()
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -94,9 +104,11 @@ fun AddScreen(
                     style = MaterialTheme.typography.headlineMedium
                 )
 
+                // Dynamically set the unit based on the user's profile
                 WeightInput(
                     weight = uiState.weight,
-                    onWeightChange = viewModel::onWeightChange
+                    onWeightChange = viewModel::onWeightChange,
+                    unit = userProfile?.weightUnit?.name?.lowercase() ?: "kg"
                 )
 
                 val questionOrder = listOf("DIET", "ACTIVITY", "SLEEP", "WATER", "PROTEIN")
@@ -170,16 +182,12 @@ fun AddScreen(
 }
 
 
-// A confirmation dialog is no longer needed here, as we use a LaunchedEffect
-// to handle navigation, and a separate alert for deletion confirmation.
-
-
 @Composable
-fun WeightInput(weight: String, onWeightChange: (String) -> Unit) {
+fun WeightInput(weight: String, onWeightChange: (String) -> Unit, unit: String) {
     OutlinedTextField(
         value = weight,
         onValueChange = onWeightChange,
-        label = { Text("Weight (lb)") },
+        label = { Text("Weight ($unit)") },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         singleLine = true,
         modifier = Modifier.fillMaxWidth()
@@ -223,10 +231,10 @@ private fun WellnessRatingSlider(
 @Composable
 fun AddScreenPreview() {
     AndromedaTheme(darkTheme = false){
+        // We pass a unit to the preview for visual correctness
         AddScreen(
             selectedQuestions = setOf("DIET", "SLEEP", "WATER"),
             onSaveComplete = {}
         )
     }
 }
-

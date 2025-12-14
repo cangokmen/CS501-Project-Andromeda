@@ -129,9 +129,12 @@ class ChatbotViewModel(
 
     // Creates a detailed prompt with the user's profile and historical data
     private fun createWellnessContextPrompt(data: List<WellnessData>, profile: UserProfile?): String {
+        // Determine the unit to display, defaulting to "kg"
+        val unit = profile?.weightUnit?.name?.lowercase() ?: "kg"
+
         val userContext = if (profile != null) {
-            // --- FIX: Updated the weight unit to match what is saved (kg) ---
-            "The user's name is ${profile.firstName}, age is ${profile.age}, and their target weight is ${profile.targetWeight} kg."
+            // Include the dynamic unit in the user profile context
+            "The user's name is ${profile.firstName}, age is ${profile.age}, and their target weight is ${profile.targetWeight} $unit."
         } else {
             "The user's profile information (name, age, target weight) is not available."
         }
@@ -140,7 +143,8 @@ class ChatbotViewModel(
             "The user has no wellness data logged yet."
         } else {
             data.takeLast(30).joinToString(separator = "\n") { entry ->
-                "- Date: ${entry.timestamp}, Weight: ${entry.weight} kg, Diet: ${entry.dietRating ?: "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
+                // Include the dynamic unit in the data summary
+                "- Date: ${entry.timestamp}, Weight: ${entry.weight} $unit, Diet: ${entry.dietRating ?: "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
             }
         }
 
@@ -152,7 +156,7 @@ class ChatbotViewModel(
         
         User Profile:
         $userContext
-
+    
         Here is the user's data from the last 30 days:
         $dataSummary
         """.trimIndent()
