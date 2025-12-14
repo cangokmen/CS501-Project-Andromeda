@@ -451,14 +451,20 @@ fun AccessibilitySettings(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun QuestionManagementScreen(
     onBackClicked: () -> Unit,
     selectedQuestions: Set<String>,
     onSetQuestions: (Set<String>) -> Unit
 ) {
-    val allQuestions = listOf("DIET", "ACTIVITY", "SLEEP", "WATER", "PROTEIN")
+    // Map of question keys to their display names
+    val allQuestions = mapOf(
+        "DIET" to "Diet Rating",
+        "ACTIVITY" to "Activity Rating",
+        "SLEEP" to "Sleep Hours",
+        "WATER" to "Water Intake",
+        "PROTEIN" to "Protein Intake"
+    )
 
     Column(
         modifier = Modifier
@@ -472,46 +478,56 @@ fun QuestionManagementScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBackClicked) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") }
-            Text("Question Management", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onBackClicked) {
+                Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Text("Manage Questions", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.weight(1f))
         }
-
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
         ) {
             Text(
-                "Select the metrics you want to track. You can select up to 3.",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(bottom = 16.dp)
+                "Select up to 3 questions to track:",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                allQuestions.forEach { question ->
-                    val isSelected = question in selectedQuestions
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = {
+            allQuestions.forEach { (key, name) ->
+                val isChecked = key in selectedQuestions
+                val isEnabled = isChecked || selectedQuestions.size < 3
+
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = isEnabled) {
                             val newSelection = selectedQuestions.toMutableSet()
-                            if (isSelected) {
-                                // Allow removal only if more than 1 is selected
-                                if (newSelection.size > 1) {
-                                    newSelection.remove(question)
-                                }
+                            if (isChecked) {
+                                newSelection.remove(key)
                             } else {
-                                // Allow adding only if less than 3 are selected
-                                if (newSelection.size < 3) {
-                                    newSelection.add(question)
-                                }
+                                newSelection.add(key)
+                            }
+                            onSetQuestions(newSelection)
+                        }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = isChecked,
+                        onCheckedChange = {
+                            val newSelection = selectedQuestions.toMutableSet()
+                            if (it) {
+                                newSelection.add(key)
+                            } else {
+                                newSelection.remove(key)
                             }
                             onSetQuestions(newSelection)
                         },
-                        label = { Text(question.replaceFirstChar { it.uppercase() }) }
+                        enabled = isEnabled
                     )
+                    Text(text = name, modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }

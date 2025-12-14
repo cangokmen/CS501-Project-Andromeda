@@ -35,7 +35,12 @@ class UserPreferencesRepository(private val context: Context) {
     val selectedQuestions: Flow<Set<String>> = context.userPreferencesDataStore.data
         .map { prefs ->
             // Provide a default set of questions if none are stored.
-            prefs[PreferencesKeys.SELECTED_QUESTIONS] ?: setOf("DIET", "ACTIVITY", "SLEEP")
+            val questions = prefs[PreferencesKeys.SELECTED_QUESTIONS]
+            if (questions.isNullOrEmpty()) {
+                setOf("DIET", "ACTIVITY", "SLEEP")
+            } else {
+                questions
+            }
         }
 
     // --- UI Preference Save Functions ---
