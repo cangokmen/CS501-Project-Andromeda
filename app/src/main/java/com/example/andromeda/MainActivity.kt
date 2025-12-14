@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
@@ -25,9 +26,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -40,6 +43,7 @@ import com.example.andromeda.data.UserPreferencesRepository
 import com.example.andromeda.navigation.AppNavHost
 import com.example.andromeda.navigation.Screen
 import com.example.andromeda.ui.theme.AndromedaTheme
+import com.example.andromeda.ui.theme.DarkGreen
 import com.example.andromeda.viewmodels.AuthViewModel
 import com.example.andromeda.viewmodels.AuthState
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -245,9 +249,20 @@ fun MainApp(
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                        }
+                        },
+                        containerColor = DarkGreen.copy(alpha = 0.2f),
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 0.dp,
+                            pressedElevation = 0.dp,
+                            hoveredElevation = 0.dp,
+                            focusedElevation = 0.dp
+                        )
                     ) {
-                        Icon(painter = painterResource(id = R.drawable.galaxy), contentDescription = "Chatbot")
+                        Icon(
+                            painter = painterResource(id = R.drawable.galaxy),
+                            contentDescription = "Chatbot",
+                            modifier = Modifier.graphicsLayer(alpha = 0.8f) // Correct way to set transparency
+                        )
 
                     }
                 }

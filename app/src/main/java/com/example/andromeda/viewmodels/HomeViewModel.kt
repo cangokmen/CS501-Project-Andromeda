@@ -70,7 +70,7 @@ class HomeViewModel(
                 val responseText = withContext(Dispatchers.IO) {
                     val generativeModel = GenerativeModel(
                         // --- FIX: Corrected model name and API key access ---
-                        modelName = "gemini-1.5-flash",
+                        modelName = "gemini-2.5-flash-lite",
                         apiKey = BuildConfig.GEMINI_API_KEY
                     )
                     val response = generativeModel.generateContent(prompt)
