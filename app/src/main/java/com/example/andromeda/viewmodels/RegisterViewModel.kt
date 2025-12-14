@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.andromeda.data.AuthRepository
+import com.example.andromeda.data.RegisterRepository
 import com.example.andromeda.data.UserProfile
 // --- 1. ADD THIS IMPORT ---
 import com.example.andromeda.data.UserPreferencesRepository
@@ -13,21 +13,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-sealed class AuthState {
-    object Unauthenticated : AuthState()
-    object Loading : AuthState()
-    data class Authenticated(val userProfile: UserProfile?) : AuthState()
-    data class Error(val message: String) : AuthState()
+sealed class RegisterState {
+    object Unauthenticated : RegisterState()
+    object Loading : RegisterState()
+    data class Authenticated(val userProfile: UserProfile?) : RegisterState()
+    data class Error(val message: String) : RegisterState()
 }
 
 // --- 2. MODIFY CONSTRUCTOR ---
-class AuthViewModel(
-    private val authRepository: AuthRepository,
+class RegisterViewModel(
+    private val registerRepository: RegisterRepository,
     private val userPrefsRepository: UserPreferencesRepository
 ) : ViewModel() {
 
-    private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
-    val authState: StateFlow<AuthState> = _authState.asStateFlow()
+    private val _registerState = MutableStateFlow<RegisterState>(RegisterState.Loading)
+    val registerState: StateFlow<RegisterState> = _registerState.asStateFlow()
 
     init {
         checkUserStatus()
@@ -35,40 +35,40 @@ class AuthViewModel(
 
     fun checkUserStatus() {
         viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            if (authRepository.hasProfile()) {
-                val profile = authRepository.getUserProfile()
-                _authState.value = AuthState.Authenticated(profile)
+            _registerState.value = RegisterState.Loading
+            if (registerRepository.hasProfile()) {
+                val profile = registerRepository.getUserProfile()
+                _registerState.value = RegisterState.Authenticated(profile)
             } else {
-                _authState.value = AuthState.Unauthenticated
+                _registerState.value = RegisterState.Unauthenticated
             }
         }
     }
 
     fun createProfile(firstName: String, lastName: String, age: Int, targetWeight: Double, weightUnit: String) {
         viewModelScope.launch {
-            _authState.value = AuthState.Loading
+            _registerState.value = RegisterState.Loading
             // --- 3. ADD THIS LINE ---
             // Save the unit preference that the rest of the app will use
             userPrefsRepository.saveWeightUnitPreference(weightUnit)
 
             // This part correctly saves the unit to the user's permanent profile
-            val result = authRepository.createOrUpdateUserProfile(firstName, lastName, age, targetWeight, weightUnit)
+            val result = registerRepository.createOrUpdateUserProfile(firstName, lastName, age, targetWeight, weightUnit)
             result.onSuccess {
-                val profile = authRepository.getUserProfile()
-                _authState.value = AuthState.Authenticated(profile)
+                val profile = registerRepository.getUserProfile()
+                _registerState.value = RegisterState.Authenticated(profile)
             }.onFailure {
-                _authState.value = AuthState.Error(it.message ?: "An unknown error occurred.")
+                _registerState.value = RegisterState.Error(it.message ?: "An unknown error occurred.")
             }
         }
     }
 
     fun logout() {
         viewModelScope.launch {
-            authRepository.deleteProfileAndData()
+            registerRepository.deleteProfileAndData()
             // It might also be a good idea to reset the preference to default on logout, but it's optional.
             // userPrefsRepository.saveWeightUnitPreference("kg")
-            _authState.value = AuthState.Unauthenticated
+            _registerState.value = RegisterState.Unauthenticated
         }
     }
 
@@ -77,12 +77,12 @@ class AuthViewModel(
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    if (modelClass.isAssignableFrom(AuthViewModel::class.java)) {
+                    if (modelClass.isAssignableFrom(RegisterViewModel::class.java)) {
                         // --- 4. MODIFY FACTORY ---
                         // Create both repositories here
-                        val authRepository = AuthRepository(application)
+                        val registerRepository = RegisterRepository(application)
                         val userPrefsRepository = UserPreferencesRepository(application)
-                        return AuthViewModel(authRepository, userPrefsRepository) as T
+                        return RegisterViewModel(registerRepository, userPrefsRepository) as T
                     }
                     throw IllegalArgumentException("Unknown ViewModel class")
                 }

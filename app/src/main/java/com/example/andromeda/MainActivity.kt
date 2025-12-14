@@ -44,8 +44,8 @@ import com.example.andromeda.navigation.AppNavHost
 import com.example.andromeda.navigation.Screen
 import com.example.andromeda.ui.theme.AndromedaTheme
 import com.example.andromeda.ui.theme.DarkGreen
-import com.example.andromeda.viewmodels.AuthViewModel
-import com.example.andromeda.viewmodels.AuthState
+import com.example.andromeda.viewmodels.RegisterViewModel
+import com.example.andromeda.viewmodels.RegisterState
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import com.google.gson.Gson
@@ -173,8 +173,8 @@ fun MainApp(
             LocalContext.current.applicationContext as Application
         )
     ),
-    authViewModel: AuthViewModel = viewModel(
-        factory = AuthViewModel.Factory(
+    registerViewModel: RegisterViewModel = viewModel(
+        factory = RegisterViewModel.Factory(
             LocalContext.current.applicationContext as Application
         )
     )
@@ -184,7 +184,7 @@ fun MainApp(
     val selectedQuestions by mainViewModel.selectedQuestions.collectAsState()
 
     // Get auth state directly from AuthViewModel
-    val authState by authViewModel.authState.collectAsState()
+    val authState by registerViewModel.registerState.collectAsState()
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -206,7 +206,7 @@ fun MainApp(
         Scaffold(
             bottomBar = {
                 // Only show bottom bar if a profile exists
-                if (authState is AuthState.Authenticated) {
+                if (authState is RegisterState.Authenticated) {
                     BottomAppBar(
                         containerColor = MaterialTheme.colorScheme.primary
                     ) {
@@ -239,7 +239,7 @@ fun MainApp(
             },
             floatingActionButton = {
                 // Only show FAB if a profile exists
-                if (authState is AuthState.Authenticated && currentRoute != Screen.Chatbot.route) {
+                if (authState is RegisterState.Authenticated && currentRoute != Screen.Chatbot.route) {
                     FloatingActionButton(
                         onClick = {
                             navController.navigate(Screen.Chatbot.route) {
@@ -269,7 +269,7 @@ fun MainApp(
             }
         ) { innerPadding ->
             // Show a loading indicator while checking auth status
-            if (authState is AuthState.Loading) {
+            if (authState is RegisterState.Loading) {
                 // You can add a centered CircularProgressIndicator here
             } else {
                 AppNavHost(
@@ -282,9 +282,9 @@ fun MainApp(
                     selectedQuestions = selectedQuestions,
                     onSetQuestions = { mainViewModel.setQuestions(it) },
                     // Pass the hasProfile state directly to the NavHost
-                    hasProfile = authState is AuthState.Authenticated,
-                    onLogout = { authViewModel.logout() },
-                    authViewModel = authViewModel
+                    hasProfile = authState is RegisterState.Authenticated,
+                    onLogout = { registerViewModel.logout() },
+                    registerViewModel = registerViewModel
                 )
             }
         }

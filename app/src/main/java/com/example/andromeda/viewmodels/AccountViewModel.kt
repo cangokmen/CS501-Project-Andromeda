@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.andromeda.data.AuthRepository
+import com.example.andromeda.data.RegisterRepository
 import com.example.andromeda.data.UserProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +17,7 @@ data class AccountUiState(
     val isEditing: Boolean = false
 )
 
-class AccountViewModel(private val repository: AuthRepository) : ViewModel() {
+class AccountViewModel(private val repository: RegisterRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(AccountUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -83,7 +83,7 @@ class AccountViewModel(private val repository: AuthRepository) : ViewModel() {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(AccountViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return AccountViewModel(AuthRepository(application)) as T
+                return AccountViewModel(RegisterRepository(application)) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

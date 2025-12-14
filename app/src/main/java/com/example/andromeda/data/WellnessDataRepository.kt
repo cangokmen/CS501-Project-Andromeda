@@ -83,9 +83,9 @@ class WellnessDataRepository(private val context: Context) {
     /**
      * Converts all historical weight data and the user's target weight to a new unit.
      */
-    suspend fun convertAllWeightData(newUnit: String, authRepository: AuthRepository) {
+    suspend fun convertAllWeightData(newUnit: String, registerRepository: RegisterRepository) {
         Log.d("WellnessDataRepo", "Converting all data to $newUnit")
-        val userProfile = authRepository.getUserProfile() ?: return
+        val userProfile = registerRepository.getUserProfile() ?: return
         val oldUnit = userProfile.weightUnit
 
         if (oldUnit == newUnit) return // No conversion needed
@@ -106,7 +106,7 @@ class WellnessDataRepository(private val context: Context) {
         val newTargetWeight = (userProfile.targetWeight * conversionFactor)
             .toBigDecimal().setScale(1, RoundingMode.HALF_UP).toDouble()
 
-        authRepository.createOrUpdateUserProfile(
+        registerRepository.createOrUpdateUserProfile(
             firstName = userProfile.firstName,
             lastName = userProfile.lastName,
             age = userProfile.age,

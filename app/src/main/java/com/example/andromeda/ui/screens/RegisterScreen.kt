@@ -9,8 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.andromeda.viewmodels.AuthViewModel
-import com.example.andromeda.viewmodels.AuthState
+import com.example.andromeda.viewmodels.RegisterViewModel
+import com.example.andromeda.viewmodels.RegisterState
 import androidx.compose.ui.platform.LocalContext
 import android.app.Application
 import androidx.compose.material3.ButtonDefaults
@@ -26,8 +26,8 @@ import com.example.andromeda.R
 @Composable
 fun RegisterScreen(
     onRegistrationSuccess: () -> Unit,
-    authViewModel: AuthViewModel = viewModel(
-        factory = AuthViewModel.Factory(
+    registerViewModel: RegisterViewModel = viewModel(
+        factory = RegisterViewModel.Factory(
             LocalContext.current.applicationContext as Application
         )
     )
@@ -42,22 +42,22 @@ fun RegisterScreen(
     val unitOptions = listOf("kg", "lbs")
     // --- END NEW STATE ---
 
-    val registrationState by authViewModel.authState.collectAsState()
+    val registrationState by registerViewModel.registerState.collectAsState()
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(registrationState) {
         when (val state = registrationState) {
-            is AuthState.Authenticated -> {
+            is RegisterState.Authenticated -> {
                 isLoading = false
                 onRegistrationSuccess()
             }
-            is AuthState.Error -> {
+            is RegisterState.Error -> {
                 isLoading = false
                 errorMessage = state.message
             }
-            is AuthState.Loading -> {
+            is RegisterState.Loading -> {
                 isLoading = true
                 errorMessage = null
             }
@@ -149,7 +149,7 @@ fun RegisterScreen(
                         val ageInt = age.toIntOrNull()
                         val weightDouble = targetWeight.toDoubleOrNull()
                         if (firstName.isNotBlank() && lastName.isNotBlank() && ageInt != null && weightDouble != null) {
-                            authViewModel.createProfile(firstName, lastName, ageInt, weightDouble, selectedUnit) // Pass unit
+                            registerViewModel.createProfile(firstName, lastName, ageInt, weightDouble, selectedUnit) // Pass unit
                         } else {
                             errorMessage = "Please fill all fields correctly."
                         }

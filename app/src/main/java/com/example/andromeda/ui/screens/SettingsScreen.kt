@@ -28,17 +28,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.andromeda.R
-import com.example.andromeda.data.AuthRepository
+import com.example.andromeda.data.RegisterRepository
 import com.example.andromeda.data.UserProfile
-import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
-import com.example.andromeda.viewmodels.AuthViewModel
-import com.example.andromeda.viewmodels.AuthState
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.example.andromeda.viewmodels.RegisterViewModel
+import com.example.andromeda.viewmodels.RegisterState
 import kotlinx.coroutines.launch
-import java.io.InputStreamReader
 import java.math.RoundingMode
 
 // --- Main Settings Navigation ---
@@ -52,17 +47,17 @@ fun SettingsScreen(
     onSetTextSize: (Boolean) -> Unit,
     selectedQuestions: Set<String>,
     onSetQuestions: (Set<String>) -> Unit,
-    authViewModel: AuthViewModel = viewModel(
-        factory = AuthViewModel.Factory(LocalContext.current.applicationContext as Application)
+    registerViewModel: RegisterViewModel = viewModel(
+        factory = RegisterViewModel.Factory(LocalContext.current.applicationContext as Application)
     )
 ) {
     var screenState by remember { mutableStateOf(ScreenState.Main) }
-    val authState by authViewModel.authState.collectAsState()
+    val authState by registerViewModel.registerState.collectAsState()
 
     // Create repository instances here to pass down
     val context = LocalContext.current
     val wellnessDataRepository = remember { WellnessDataRepository(context) }
-    val authRepository = remember { AuthRepository(context.applicationContext as Application) }
+    val registerRepository = remember { RegisterRepository(context.applicationContext as Application) }
     val coroutineScope = rememberCoroutineScope()
 
 
@@ -93,7 +88,7 @@ fun SettingsScreen(
                     onPrivacyPolicyClick = { screenState = ScreenState.PrivacyPolicy }
                 )
                 ScreenState.Account -> {
-                    val profile = (authState as? AuthState.Authenticated)?.userProfile
+                    val profile = (authState as? RegisterState.Authenticated)?.userProfile
                     if (profile != null) {
                         AccountSettings(
                             profile = profile,
@@ -102,19 +97,19 @@ fun SettingsScreen(
                                 coroutineScope.launch {
                                     // First, perform data conversion if the unit has changed
                                     if (unit != profile.weightUnit) {
-                                        wellnessDataRepository.convertAllWeightData(unit, authRepository)
+                                        wellnessDataRepository.convertAllWeightData(unit, registerRepository)
                                         // The conversion function already updates the profile,
                                         // but we need to refresh the local state.
-                                        authViewModel.checkUserStatus()
+                                        registerViewModel.checkUserStatus()
                                     } else {
                                         // If the unit is the same, just update the profile with the new values.
                                         // The conversion function handles rounding, so we can pass the Double directly.
-                                        authViewModel.createProfile(fn, ln, age.toIntOrNull() ?: 0, w.toDoubleOrNull() ?: 0.0, unit)
+                                        registerViewModel.createProfile(fn, ln, age.toIntOrNull() ?: 0, w.toDoubleOrNull() ?: 0.0, unit)
                                     }
                                 }
                             },
                             onBackClicked = {
-                                authViewModel.checkUserStatus() // Refresh profile on exit
+                                registerViewModel.checkUserStatus() // Refresh profile on exit
                                 screenState = ScreenState.Main
                             },
                             onLogoutClicked = onLogout

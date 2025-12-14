@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.andromeda.BuildConfig
-import com.example.andromeda.data.AuthRepository
+import com.example.andromeda.data.RegisterRepository
 import com.example.andromeda.data.UserProfile
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
@@ -30,7 +30,7 @@ data class HomeUiState(
 
 class HomeViewModel(
     private val wellnessRepo: WellnessDataRepository,
-    private val authRepo: AuthRepository
+    private val authRepo: RegisterRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -135,7 +135,7 @@ class HomeViewModel(
                 @Suppress("UNCHECKED_CAST")
                 return HomeViewModel(
                     WellnessDataRepository(application),
-                    AuthRepository(application)
+                    RegisterRepository(application)
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

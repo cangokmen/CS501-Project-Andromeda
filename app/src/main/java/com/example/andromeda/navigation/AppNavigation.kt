@@ -15,7 +15,7 @@ import com.example.andromeda.ui.screens.HistoryScreen
 import com.example.andromeda.ui.screens.HomeScreen
 import com.example.andromeda.ui.screens.RegisterScreen
 import com.example.andromeda.ui.screens.SettingsScreen
-import com.example.andromeda.viewmodels.AuthViewModel
+import com.example.andromeda.viewmodels.RegisterViewModel
 
 sealed class Screen(val route: String) {
     object Register : Screen("register")
@@ -42,7 +42,7 @@ fun AppNavHost(
     onSetQuestions: (Set<String>) -> Unit,
     onLogout: () -> Unit,
     hasProfile: Boolean,
-    authViewModel: AuthViewModel // <-- ADDED: Pass the shared ViewModel
+    registerViewModel: RegisterViewModel // <-- ADDED: Pass the shared ViewModel
 ) {
     NavHost(
         navController = navController,
@@ -52,7 +52,7 @@ fun AppNavHost(
         // REGISTER SCREEN
         composable(Screen.Register.route) {
             RegisterScreen(
-                authViewModel = authViewModel, // <-- PASS: Use the shared ViewModel
+                registerViewModel = registerViewModel, // <-- PASS: Use the shared ViewModel
                 onRegistrationSuccess = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Register.route) { inclusive = true }

@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.map
 
 private val Context.userStore: DataStore<Preferences> by preferencesDataStore(name = "user_profile_store")
 
-class AuthRepository(private val application: Application) {
+class RegisterRepository(private val application: Application) {
 
     private val gson = Gson()
     private val context = application.applicationContext
@@ -52,7 +52,7 @@ class AuthRepository(private val application: Application) {
             }
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e("AuthRepository", "Failed to save user profile", e)
+            Log.e("RegisterRepository", "Failed to save user profile", e)
             Result.failure(e)
         }
     }
@@ -69,7 +69,7 @@ class AuthRepository(private val application: Application) {
                 null
             }
         } catch (e: Exception) {
-            Log.e("AuthRepository", "Failed to get user profile", e)
+            Log.e("RegisterRepository", "Failed to get user profile", e)
             null
         }
     }

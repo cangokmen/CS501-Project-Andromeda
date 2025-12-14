@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.andromeda.BuildConfig
-import com.example.andromeda.data.AuthRepository
+import com.example.andromeda.data.RegisterRepository
 import com.example.andromeda.data.UserProfile
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
@@ -36,7 +36,7 @@ data class ChatbotUiState(
 
 class ChatbotViewModel(
     private val wellnessRepo: WellnessDataRepository,
-    private val authRepo: AuthRepository
+    private val authRepo: RegisterRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatbotUiState())
@@ -179,7 +179,7 @@ class ChatbotViewModel(
                 @Suppress("UNCHECKED_CAST")
                 return ChatbotViewModel(
                     WellnessDataRepository(application),
-                    AuthRepository(application) // Provide AuthRepository
+                    RegisterRepository(application) // Provide AuthRepository
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
