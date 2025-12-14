@@ -44,7 +44,6 @@ import kotlinx.coroutines.launch
 // REMOVED: import kotlinx.coroutines.tasks.await
 import kotlin.math.roundToInt
 
-// --- Data Models and State (Unchanged) ---
 data class WellnessCategory(val id: String, val icon: ImageVector, val label: String)
 data class WatchUiState(
     val allCategories: List<WellnessCategory> = emptyList(),
@@ -55,7 +54,7 @@ data class WatchUiState(
 )
 enum class Screen { Input, CategorySelection }
 
-// --- ViewModel Layer ---
+// ViewModelLayer
 class WatchViewModel(
     application: Application,
     private val watchDataRepository: WatchDataRepository
@@ -111,6 +110,12 @@ class WatchViewModel(
             .addOnFailureListener { e -> Log.e("WatchViewModel", "Failed to get connected nodes.", e) }
     }
 
+    /*
+     * AI Suggested this: To safely handle incoming data from the Wearable Data Layer,
+     * this override function was implemented. It checks the message path, safely parses
+     * the byte array to a string and then to a Double, and finally updates the
+     * ViewModel's state, ensuring robust communication between devices.
+     */
     override fun onMessageReceived(messageEvent: MessageEvent) {
         if (messageEvent.path == "/average_weight_response") {
             val averageWeightStr = String(messageEvent.data)
@@ -173,7 +178,7 @@ class WatchViewModel(
 }
 
 
-// --- UI Layer for Watch ---
+// UI Layer
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -239,7 +244,6 @@ fun CategorySelectionScreen(viewModel: WatchViewModel) {
             onClick = { viewModel.confirmCategorySelection() },
             enabled = uiState.selectedCategoryIds.size == 3
         ) {
-            // CORRECTED: Added Modifier.fillMaxSize() to the Box for perfect centering
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -256,7 +260,6 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
     val context = LocalContext.current
     val activity = (context as? ComponentActivity)
     val dataClient = remember { Wearable.getDataClient(context) }
-    // No need for coroutineScope here for the submission button anymore
     var weight by remember(uiState.averageWeight) { mutableIntStateOf(uiState.averageWeight) }
 
     LaunchedEffect(Unit) {
@@ -286,6 +289,12 @@ fun WellnessInputScreen(viewModel: WatchViewModel) {
                 )
             }
 
+            /*
+             * AI Suggested this: To create a dynamic list of inputs based on user
+             * preferences, this `items` block iterates through only the selected
+             * categories. For each one, it creates a `ValueSelector` and manages its
+             * state, ensuring the UI always matches the user's chosen settings.
+             */
             items(selectedCategories, key = { it.id }) { category ->
                 var rating by remember(uiState.questionValues[category.id]) {
                     mutableStateOf(uiState.questionValues[category.id] ?: 5)

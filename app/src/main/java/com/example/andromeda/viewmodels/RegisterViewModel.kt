@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.andromeda.data.RegisterRepository
 import com.example.andromeda.data.UserProfile
-// --- 1. ADD THIS IMPORT ---
 import com.example.andromeda.data.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +19,6 @@ sealed class RegisterState {
     data class Error(val message: String) : RegisterState()
 }
 
-// --- 2. MODIFY CONSTRUCTOR ---
 class RegisterViewModel(
     private val registerRepository: RegisterRepository,
     private val userPrefsRepository: UserPreferencesRepository
@@ -45,10 +43,15 @@ class RegisterViewModel(
         }
     }
 
+    /*
+     * AI Suggested this: To handle a multi-part registration, this function coordinates
+     * writes to two different repositories. It first saves the general weight unit
+     * preference for the app, then creates the permanent user profile, ensuring all
+     * necessary data is stored from a single user action.
+     */
     fun createProfile(firstName: String, lastName: String, age: Int, targetWeight: Double, weightUnit: String) {
         viewModelScope.launch {
             _registerState.value = RegisterState.Loading
-            // --- 3. ADD THIS LINE ---
             // Save the unit preference that the rest of the app will use
             userPrefsRepository.saveWeightUnitPreference(weightUnit)
 
@@ -78,7 +81,6 @@ class RegisterViewModel(
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     if (modelClass.isAssignableFrom(RegisterViewModel::class.java)) {
-                        // --- 4. MODIFY FACTORY ---
                         // Create both repositories here
                         val registerRepository = RegisterRepository(application)
                         val userPrefsRepository = UserPreferencesRepository(application)

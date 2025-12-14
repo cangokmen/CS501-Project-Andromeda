@@ -23,7 +23,7 @@ class UserPreferencesRepository(private val context: Context) {
         val IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
         val USE_BIGGER_TEXT = booleanPreferencesKey("use_bigger_text")
         val SELECTED_QUESTIONS = stringSetPreferencesKey("selected_questions")
-        val WEIGHT_UNIT = stringPreferencesKey("weight_unit") // <-- ADDED
+        val WEIGHT_UNIT = stringPreferencesKey("weight_unit")
     }
 
     // --- UI Preference Flows ---
@@ -45,13 +45,11 @@ class UserPreferencesRepository(private val context: Context) {
             }
         }
 
-    // --- NEW FLOW ---
     val weightUnit: Flow<String> = context.userPreferencesDataStore.data
         .map { prefs -> prefs[PreferencesKeys.WEIGHT_UNIT] ?: "kg" }
 
 
     // --- UI Preference Save Functions ---
-
     suspend fun saveThemePreference(isDarkTheme: Boolean) {
         context.userPreferencesDataStore.edit { prefs ->
             prefs[PreferencesKeys.IS_DARK_THEME] = isDarkTheme
@@ -76,7 +74,4 @@ class UserPreferencesRepository(private val context: Context) {
             prefs[PreferencesKeys.WEIGHT_UNIT] = unit
         }
     }
-
-    // All previous auth-related functions (saveUserCredentials, checkCredentials, logoutUser, etc.)
-    // have been completely removed.
 }

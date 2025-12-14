@@ -19,11 +19,8 @@ class RegisterRepository(private val application: Application) {
     private val gson = Gson()
     private val context = application.applicationContext
 
-    // --- ADD THIS ---
     // Create an instance of WellnessDataRepository to manage wellness data
     private val wellnessDataRepository = WellnessDataRepository(context)
-    // --- END ---
-
 
     // Key for storing the single user profile as a JSON string
     private val USER_PROFILE_KEY = stringPreferencesKey("user_profile")
@@ -37,7 +34,7 @@ class RegisterRepository(private val application: Application) {
         lastName: String,
         age: Int,
         targetWeight: Double,
-        weightUnit: String // <-- ADDED
+        weightUnit: String
     ): Result<Unit> {
         return try {
             val userProfile = UserProfile(
@@ -45,7 +42,7 @@ class RegisterRepository(private val application: Application) {
                 lastName = lastName,
                 age = age,
                 targetWeight = targetWeight,
-                weightUnit = weightUnit // <-- ADDED
+                weightUnit = weightUnit
             )
             context.userStore.edit { preferences ->
                 preferences[USER_PROFILE_KEY] = gson.toJson(userProfile)
@@ -86,14 +83,11 @@ class RegisterRepository(private val application: Application) {
      * Deletes the user profile AND all associated wellness data.
      * This can be used for a "reset" or "logout" functionality.
      */
-    suspend fun deleteProfileAndData() { // <-- RENAMED for clarity
+    suspend fun deleteProfileAndData() {
         // Delete the user profile
         context.userStore.edit { preferences ->
             preferences.remove(USER_PROFILE_KEY)
         }
-        // --- ADD THIS ---
-        // Also delete all the wellness history data
         wellnessDataRepository.clearAllData()
-        // --- END ---
     }
 }

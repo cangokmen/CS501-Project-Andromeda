@@ -82,14 +82,18 @@ class ChatbotViewModel(
         }
         chatHistory.add(content("user") { text(userText) })
 
-        // Add a temporary processing message
+
+        /* AI Suggested this: This pattern improves the user experience by providing
+         * immediate feedback. A temporary "processing" message is added to the UI
+         * while the actual model response is being generated in the background.
+         * Add a temporary processing message
+         */
         val processingMessage = ChatMessage("...", isFromUser = false, isProcessing = true)
         _uiState.update { it.copy(messages = it.messages + processingMessage) }
 
         // Launch a coroutine to get the response from the model
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // --- FIX: Fetch the single user profile directly ---
                 val userProfile = authRepo.getUserProfile()
                 val wellnessData = wellnessRepo.allWellnessData.first()
 
@@ -128,7 +132,11 @@ class ChatbotViewModel(
         }
     }
 
-    // Creates a detailed prompt with the user's profile and historical data
+    /* AI Suggested this: To achieve personalized responses, this function was created
+     * to dynamically build a detailed context prompt. It aggregates the user's
+     * profile and their recent wellness data into a single block of text for the LLM.
+     * Creates a detailed prompt with the user's profile and historical data
+     */
     private fun createWellnessContextPrompt(data: List<WellnessData>, profile: UserProfile?): String {
 
         val weightUnit = profile?.weightUnit ?: "kg"

@@ -2,7 +2,6 @@ package com.example.watch.presentation.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Copied from the app module for consistency
 val DarkGreen = Color(0xFF004D40)
 val MediumGreen = Color(0xFF00796B)
 val LightGreen = Color(0xFFB2DFDB)

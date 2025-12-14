@@ -41,6 +41,11 @@ class AccountViewModel(private val repository: RegisterRepository) : ViewModel()
         targetWeight: String? = null
     ) {
         _uiState.value.profile?.let { currentProfile ->
+            /* AI Suggested this: This `update` block is the standard way to modify a
+             * StateFlow with immutable data classes. It creates a new copy of the state
+             * with the updated values, which automatically triggers a UI recomposition
+             * for any composables observing this state.
+             */
             _uiState.update {
                 it.copy(
                     profile = currentProfile.copy(

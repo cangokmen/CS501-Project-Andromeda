@@ -43,7 +43,7 @@ import java.util.Locale
 import java.math.RoundingMode
 
 
-// --- CONVERSION CONSTANT ---
+// Conversion constant
 private const val KG_TO_LBS = 2.20462
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -58,11 +58,15 @@ fun HomeScreen(
     val allWellnessData by repository.allWellnessData.collectAsState(initial = emptyList())
     val uiState by viewModel.uiState.collectAsState()
 
-    // --- FIX: Fetch the weight unit preference ---
     val userPrefsRepo = remember { UserPreferencesRepository(context) }
     val weightUnit by userPrefsRepo.weightUnit.collectAsState(initial = "kg")
-    // --- END FIX ---
 
+    /*
+     * AI Suggested this: To prevent visual clutter from multiple entries on the same day,
+     * this logic processes the raw data. It groups entries by date, takes only the
+     * most recent one from each day, and then sorts them for chronological display
+     * in the graph and calendar.
+     */
     // 2) Collapse multiple entries on the same date -> keep latest per day
     val dailyData = remember(allWellnessData) {
         allWellnessData
@@ -133,7 +137,6 @@ fun HomeScreen(
                                     modifier = Modifier.fillMaxSize(),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    // --- FIX: Pass weightUnit to the chart ---
                                     WeightLineChart(
                                         data = dailyData,
                                         weightUnit = weightUnit,
@@ -141,7 +144,6 @@ fun HomeScreen(
                                             .fillMaxWidth()
                                             .weight(1f)
                                     )
-                                    // --- END FIX ---
                                 }
                             }
                         }
@@ -151,13 +153,11 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // --- FIX: Pass weightUnit to the calendar ---
                                 WeightCalendar(
                                     weightData = dailyData,
                                     weightUnit = weightUnit,
                                     modifier = Modifier.fillMaxSize()
                                 )
-                                // --- END FIX ---
                             }
                         }
                     }
@@ -201,11 +201,15 @@ fun HomeScreen(
     }
 }
 
+/*
+ * AI Suggested this: When making the line chart, 
+ * collaboration with Gemini has been used. 
+ */
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun WeightLineChart(
     data: List<WellnessData>,
-    weightUnit: String, // <-- ADDED
+    weightUnit: String,
     modifier: Modifier = Modifier
 ) {
     val recentSorted = remember(data, weightUnit) { // <-- Re-trigger on unit change
@@ -213,13 +217,11 @@ fun WeightLineChart(
         val cutoff = today.minusDays(14)
         data.mapNotNull { wd ->
             val d = runCatching { java.time.LocalDate.parse(wd.timestamp.take(10)) }.getOrNull()
-            // --- FIX: Convert weight for display ---
             val displayWeight = if (weightUnit == "lbs") {
                 wd.weight * KG_TO_LBS
             } else {
                 wd.weight
             }
-            // --- END FIX ---
             d?.let { Triple(displayWeight, it, wd.timestamp) }
         }
             .filter { it.second >= cutoff }
@@ -312,14 +314,15 @@ fun WeightLineChart(
         for (i in 0 until n) drawCircle(pointColor, radius = 6f, center = xy(i))
 
         drawContext.canvas.nativeCanvas.drawText("Date", size.width / 2 - 30f, size.height - (paddingBottom/4) + 20, paintX)
-        // --- FIX: Dynamic Y-axis label ---
         drawContext.canvas.nativeCanvas.drawText("Weight ($weightUnit)", paddingLeft - 120f, paddingTop - 50f, paintY)
-        // --- END FIX ---
     }
 }
 
-/* ----------------------- CALENDAR (STICKY HEADER) ----------------------- */
-
+/*
+ * AI Suggested this: When making the calendar, 
+ * collaboration with Gemini has been used. 
+ */
+// Weight Calendar
 @Composable
 private fun WeightCalendar(
     weightData: List<WellnessData>,
@@ -328,7 +331,6 @@ private fun WeightCalendar(
 ) {
     val monthFormatter = remember { SimpleDateFormat("MMM yyyy", Locale.getDefault()) }
 
-    // --- FIX: Convert weight based on unit for the calendar view ---
     val weightByDate = remember(weightData, weightUnit) {
         weightData.associate {
             val displayWeight = if (weightUnit == "lbs") {
@@ -339,7 +341,6 @@ private fun WeightCalendar(
             it.timestamp.take(10) to displayWeight
         }
     }
-    // --- END FIX ---
 
     val today = remember { Calendar.getInstance() }
     var displayMonth by rememberSaveable { mutableStateOf(today.get(Calendar.MONTH)) }

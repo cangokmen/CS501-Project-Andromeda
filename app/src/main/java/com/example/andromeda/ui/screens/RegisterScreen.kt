@@ -37,16 +37,20 @@ fun RegisterScreen(
     var age by remember { mutableStateOf("") }
     var targetWeight by remember { mutableStateOf("") }
 
-    // --- NEW STATE ---
     var selectedUnit by remember { mutableStateOf("kg") }
     val unitOptions = listOf("kg", "lbs")
-    // --- END NEW STATE ---
 
     val registrationState by registerViewModel.registerState.collectAsState()
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
+    /*
+     * AI Suggested this: This LaunchedEffect is used to handle side effects from the
+     * ViewModel's state. It observes the registrationState and updates the local UI
+     * state (isLoading, errorMessage) or triggers navigation upon success.
+     * This decouples the Composable from the business logic.
+     */
     LaunchedEffect(registrationState) {
         when (val state = registrationState) {
             is RegisterState.Authenticated -> {
@@ -73,7 +77,6 @@ fun RegisterScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- LOGO ADDED HERE ---
             Icon(
                 painter = painterResource(id = R.drawable.galaxy),
                 contentDescription = "App Logo",
@@ -83,7 +86,6 @@ fun RegisterScreen(
                 tint = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(24.dp))
-            // --- END LOGO ---
 
             Text("Create Your Profile", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(24.dp))
@@ -113,7 +115,6 @@ fun RegisterScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- NEW UNIT SELECTOR ---
             Text("Units for Weight", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -129,8 +130,6 @@ fun RegisterScreen(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            // --- END NEW UNIT SELECTOR ---
-
 
             OutlinedTextField(
                 value = targetWeight,

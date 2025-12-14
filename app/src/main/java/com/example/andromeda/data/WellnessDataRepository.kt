@@ -19,21 +19,18 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.math.RoundingMode
 
-// Extension property to create a DataStore instance
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "wellness_data_store")
 
-// --- CONVERSION CONSTANT ---
+// Constant for conversion
 private const val KG_TO_LBS = 2.20462
 
 class WellnessDataRepository(private val context: Context) {
 
     private val gson = Gson()
     private val wellnessDataListKey = stringPreferencesKey("wellness_data_list_v2")
-    // --- ADDED FOR PROACTIVE UPDATES ---
     private val messageClient by lazy { Wearable.getMessageClient(context) }
     private val nodeClient by lazy { Wearable.getNodeClient(context) }
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    // --- END ---
 
     // A flow that emits all saved wellness entries, sorted with the newest first.
     val allWellnessData: Flow<List<WellnessData>> = context.dataStore.data
@@ -55,7 +52,6 @@ class WellnessDataRepository(private val context: Context) {
             currentList.add(wellnessData)
             preferences[wellnessDataListKey] = gson.toJson(currentList)
         }
-        // --- ADDED ---
         sendAverageWeightUpdate()
     }
 
@@ -75,11 +71,9 @@ class WellnessDataRepository(private val context: Context) {
                 Log.w("WellnessDataRepository", "Update failed: Entry with ID ${wellnessData.id} not found.")
             }
         }
-        // --- ADDED ---
         sendAverageWeightUpdate()
     }
 
-    // --- NEW CONVERSION FUNCTION ---
     /**
      * Converts all historical weight data and the user's target weight to a new unit.
      */
@@ -114,11 +108,8 @@ class WellnessDataRepository(private val context: Context) {
             weightUnit = newUnit
         )
         Log.d("WellnessDataRepo", "Data conversion complete.")
-        // --- ADDED ---
         sendAverageWeightUpdate()
     }
-    // --- END NEW FUNCTION ---
-
 
     /**
      * Deletes a single wellness data entry by its unique ID.
@@ -130,7 +121,6 @@ class WellnessDataRepository(private val context: Context) {
             currentList.removeIf { it.id == id }
             preferences[wellnessDataListKey] = gson.toJson(currentList)
         }
-        // --- ADDED ---
         sendAverageWeightUpdate()
     }
 
@@ -150,7 +140,6 @@ class WellnessDataRepository(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[wellnessDataListKey] = "[]"
         }
-        // --- ADDED ---
         sendAverageWeightUpdate()
     }
 
@@ -167,7 +156,6 @@ class WellnessDataRepository(private val context: Context) {
         }
     }
 
-    // --- NEW FUNCTION TO PROACTIVELY SEND UPDATES ---
     private fun sendAverageWeightUpdate() {
         repositoryScope.launch {
             val averageWeight = getAverageWeight()
@@ -181,8 +169,6 @@ class WellnessDataRepository(private val context: Context) {
             }
         }
     }
-    // --- END ---
-
     /**
      * Helper function to retrieve and deserialize the current list from preferences.
      */

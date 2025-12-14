@@ -39,8 +39,6 @@ fun AddScreen(
 ) {
     val context = LocalContext.current
 
-    // The key is still important to ensure the ViewModel re-initializes
-    // for new entries vs edits, but the unit is now handled internally.
     val viewModel: AddViewModel = viewModel(
         key = "entry_$wellnessDataId",
         factory = AddViewModel.Factory(
@@ -50,7 +48,7 @@ fun AddScreen(
         )
     )
 
-    // --- 4. SIMPLIFIED: Get ALL state from the ViewModel ---
+    // Get all state from AddViewModel
     val uiState by viewModel.uiState.collectAsState()
 
     val isWeightEntered = uiState.weight.isNotBlank()
@@ -198,6 +196,10 @@ fun AddScreen(
                         Spacer(modifier = Modifier.weight(1f))
                     }
 
+                    /* AI Suggested this: To improve usability, the save button's color is changed
+                     * to visually indicate whether it's enabled or disabled. This gives the user
+                     * immediate feedback that the weight field is required.
+                     */
                     FloatingActionButton(
                         onClick = { if (isWeightEntered) viewModel.saveEntry() },
                         containerColor = if (isWeightEntered) Color(0xFF4CAF50) else Color(0xFFA5D6A7),
@@ -212,6 +214,9 @@ fun AddScreen(
 }
 
 
+/*
+ * Weight input part
+ */
 @Composable
 fun WeightInput(weight: String, onWeightChange: (String) -> Unit, unit: String) {
     OutlinedTextField(
@@ -224,9 +229,10 @@ fun WeightInput(weight: String, onWeightChange: (String) -> Unit, unit: String) 
     )
 }
 
+// Sliders
 @Composable
 private fun WellnessRatingSlider(
-    label: CharSequence, // Changed to CharSequence to accept AnnotatedString
+    label: CharSequence,
     value: Float,
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float> = 1f..10f,

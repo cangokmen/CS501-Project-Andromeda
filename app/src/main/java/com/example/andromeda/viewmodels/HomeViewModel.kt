@@ -56,7 +56,6 @@ class HomeViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                // --- FIX: Fetch the single user profile directly ---
                 val userProfile = authRepo.getUserProfile()
                 val wellnessData = wellnessRepo.allWellnessData.first().takeLast(7) // Get last 7 entries
 
@@ -69,7 +68,6 @@ class HomeViewModel(
 
                 val responseText = withContext(Dispatchers.IO) {
                     val generativeModel = GenerativeModel(
-                        // --- FIX: Corrected model name and API key access ---
                         modelName = "gemini-2.5-flash-lite",
                         apiKey = BuildConfig.GEMINI_API_KEY
                     )
@@ -91,8 +89,13 @@ class HomeViewModel(
         }
     }
 
+    /*
+     * AI Suggested this: To get personalized and context-aware results from the LLM,
+     * this function was designed to dynamically construct a detailed prompt. It combines a
+     * system instruction, the user's personal profile details, and their recent
+     * wellness data into a single, comprehensive input for the model.
+     */
     private fun createPrompt(data: List<WellnessData>, profile: UserProfile?): String {
-        // --- FIX: Use the profile's weight unit for the prompt ---
         val weightUnit = profile?.weightUnit ?: "kg"
         val dataSummary = data.joinToString(separator = "\n") { entry ->
             val displayWeight = if (weightUnit == "lbs") {
@@ -114,7 +117,6 @@ class HomeViewModel(
         } else {
             ""
         }
-        // --- END FIX ---
 
         return """
         Based on the following user information and recent wellness data:

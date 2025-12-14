@@ -225,6 +225,11 @@ fun MainApp(
                                 },
                                 icon = { Icon(item.icon, contentDescription = item.label) },
                                 label = { Text(item.label) },
+
+                                /* AI Suggested this: To make the FAB truly transparent in Material 3,
+                                 * the default elevation must be overridden to 0.dp. This removes the
+                                 * underlying surface tint that shows through the transparent container.
+                                 */
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                                     selectedTextColor = MaterialTheme.colorScheme.onPrimary,

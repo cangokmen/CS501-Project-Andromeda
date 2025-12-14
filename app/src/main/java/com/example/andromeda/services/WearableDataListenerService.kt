@@ -21,7 +21,6 @@ class WearableDataListenerService : WearableListenerService() {
 
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
-    // REMOVED: messageClient is no longer needed here for responses
     private lateinit var wellnessRepository: WellnessDataRepository
 
     override fun onCreate() {
@@ -33,13 +32,6 @@ class WearableDataListenerService : WearableListenerService() {
         super.onMessageReceived(messageEvent)
         if (messageEvent.path == "/request_average_weight") {
             Log.d("WearableService", "Received average weight request from watch. Triggering repository to send update.")
-            // --- SIMPLIFIED LOGIC ---
-            // The repository now handles the logic of calculating and sending the data back.
-            // We just need to trigger the addWellnessData function from the repository,
-            // which will in turn call sendAverageWeightUpdate.
-            // Since this is just a request, we can simply add a log. The repository will handle the response.
-            // In a more complex app, you might have a dedicated function in the repository to handle this.
-            // For now, the existing addWellnessData call in onDataChanged is sufficient.
         }
     }
 
@@ -70,7 +62,6 @@ class WearableDataListenerService : WearableListenerService() {
                     )
 
                     println("PHONE: Reconstructed WellnessData: $newEntry")
-                    // This call will now automatically trigger the average weight update
                     wellnessRepository.addWellnessData(newEntry)
                     println("PHONE: Saved wellness data and triggered proactive weight update.")
                 }

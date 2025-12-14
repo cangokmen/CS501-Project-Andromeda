@@ -37,6 +37,11 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 
+/*
+ * AI Suggested this: This entire helper composable was suggested to encapsulate
+ * the verbose speech recognizer intent logic. It simplifies the main screen
+ * by abstracting away the ActivityResultLauncher and Intent setup.
+ */
 @Composable
 fun rememberSpeechRecognizer(
     onResult: (String) -> Unit
@@ -121,7 +126,7 @@ fun ChatbotScreen(
                 .padding(paddingValues),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // === LOGO ADDED HERE ===
+            // Logo
             Image(
                 painter = painterResource(id = R.drawable.galaxy),
                 contentDescription = "Andromeda Logo",
@@ -137,7 +142,7 @@ fun ChatbotScreen(
                 state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f), // Allow the list to take remaining space
+                    .weight(1f),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {

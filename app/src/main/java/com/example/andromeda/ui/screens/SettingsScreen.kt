@@ -393,7 +393,7 @@ private fun FaqItem(question: String, answer: String) {
 }
 
 
-/* ------------------------- CORRECTED DETAIL SCREENS ------------------------- */
+// Detail Screens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -409,6 +409,11 @@ fun AccountSettings(
 
     // Local state for editing form
     var isEditing by remember { mutableStateOf(false) }
+
+    /* AI Suggested this: Using `remember` with `profile` and `isEditing` as keys ensures
+     * that the form state resets automatically if the profile changes or the user
+     * cancels an edit. This prevents stale data from persisting in the UI.
+     */
     var firstName by remember(profile, isEditing) { mutableStateOf(profile.firstName) }
     var lastName by remember(profile, isEditing) { mutableStateOf(profile.lastName) }
     var age by remember(profile, isEditing) { mutableStateOf(profile.age.toString()) }

@@ -71,7 +71,6 @@ fun HistoryScreen(
     // --- Fetch the current weight unit preference ---
     val userPrefsRepo = remember { UserPreferencesRepository(context) }
     val weightUnit by userPrefsRepo.weightUnit.collectAsState(initial = "kg")
-    // --- END ---
 
     // State to hold the date for the add/edit overlay
     var editingDate by remember { mutableStateOf<String?>(null) }
@@ -100,6 +99,12 @@ fun HistoryScreen(
                 }
             }
 
+            /*
+             * AI Suggested this: To prevent showing multiple entries for the same day,
+             * this logic groups all data by date, takes only the most recent entry
+             * from each group, and then sorts the result. It's an efficient way to process
+             * the list for display.
+             */
             val perDayLatest: List<WellnessData> = remember(allWellnessData) {
                 allWellnessData
                     .groupBy { it.timestamp.take(10) }
@@ -184,7 +189,11 @@ fun WellnessDataCard(data: WellnessData, weightUnit: String, onEdit: () -> Unit)
         }
     }
 
-    // --- FIX: Apply conversion logic directly in the composable ---
+    /*
+     * AI Suggested this: Using `remember` with the data and unit as keys ensures the
+     * weight conversion is only re-calculated when necessary, not on every recomposition.
+     * This is more performant than calculating it directly in the Text composable.
+     */
     val displayWeight = remember(data.weight, weightUnit) {
         val convertedWeight = if (weightUnit == "lbs") {
             data.weight * KG_TO_LBS
@@ -193,8 +202,6 @@ fun WellnessDataCard(data: WellnessData, weightUnit: String, onEdit: () -> Unit)
         }
         convertedWeight.toBigDecimal().setScale(1, RoundingMode.HALF_UP).toString()
     }
-    // --- END FIX ---
-
 
     Card(
         modifier = Modifier.fillMaxWidth(),

@@ -42,7 +42,7 @@ fun AppNavHost(
     onSetQuestions: (Set<String>) -> Unit,
     onLogout: () -> Unit,
     hasProfile: Boolean,
-    registerViewModel: RegisterViewModel // <-- ADDED: Pass the shared ViewModel
+    registerViewModel: RegisterViewModel
 ) {
     NavHost(
         navController = navController,
@@ -52,7 +52,7 @@ fun AppNavHost(
         // REGISTER SCREEN
         composable(Screen.Register.route) {
             RegisterScreen(
-                registerViewModel = registerViewModel, // <-- PASS: Use the shared ViewModel
+                registerViewModel = registerViewModel,
                 onRegistrationSuccess = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Register.route) { inclusive = true }

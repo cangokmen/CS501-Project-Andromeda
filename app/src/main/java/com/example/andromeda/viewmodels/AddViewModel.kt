@@ -61,7 +61,6 @@ class AddViewModel(
         viewModelScope.launch {
             val entry = repository.getWellnessDataById(idOrDate)
             if (entry != null) {
-                // --- FIX: This is the critical change ---
                 // The value is stored in KG. Convert it for display if the user's preference is lbs.
                 val displayWeight: Double
                 if (currentUnit == "lbs") {
@@ -78,7 +77,6 @@ class AddViewModel(
                         .setScale(1, RoundingMode.HALF_UP)
                         .toDouble()
                 }
-                // --- END FIX ---
 
                 _uiState.update {
                     it.copy(
