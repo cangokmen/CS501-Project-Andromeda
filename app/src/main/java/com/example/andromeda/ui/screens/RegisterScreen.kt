@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -15,21 +13,32 @@ import com.example.andromeda.viewmodels.AuthViewModel
 import com.example.andromeda.viewmodels.AuthState
 import androidx.compose.ui.platform.LocalContext
 import android.app.Application
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextAlign
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
     onRegistrationSuccess: () -> Unit,
-    // This is the line to change
     authViewModel: AuthViewModel = viewModel(
         factory = AuthViewModel.Factory(
             LocalContext.current.applicationContext as Application
         )
     )
-){
+) {
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") }
     var targetWeight by remember { mutableStateOf("") }
+
+    // --- NEW STATE ---
+    var selectedUnit by remember { mutableStateOf("kg") }
+    val unitOptions = listOf("kg", "lbs")
+    // --- END NEW STATE ---
+
     val registrationState by authViewModel.authState.collectAsState()
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -37,7 +46,6 @@ fun RegisterScreen(
 
     LaunchedEffect(registrationState) {
         when (val state = registrationState) {
-            // Use the correct, locally defined AuthState types
             is AuthState.Authenticated -> {
                 isLoading = false
                 onRegistrationSuccess()
@@ -50,9 +58,7 @@ fun RegisterScreen(
                 isLoading = true
                 errorMessage = null
             }
-            else -> {
-                isLoading = false
-            }
+            else -> isLoading = false
         }
     }
 
@@ -90,13 +96,31 @@ fun RegisterScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- NEW UNIT SELECTOR ---
+            Text("Units for Weight", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                unitOptions.forEachIndexed { index, label ->
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = unitOptions.size),
+                        onClick = { selectedUnit = label },
+                        selected = label == selectedUnit
+                    ) {
+                        Text(label)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            // --- END NEW UNIT SELECTOR ---
+
 
             OutlinedTextField(
                 value = targetWeight,
                 onValueChange = { targetWeight = it },
-                label = { Text("Target Weight (kg)") },
-                // Corrected KeyboardType from NumberDecimal to Decimal
+                label = { Text("Target Weight ($selectedUnit)") }, // Dynamic label
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -110,7 +134,7 @@ fun RegisterScreen(
                         val ageInt = age.toIntOrNull()
                         val weightDouble = targetWeight.toDoubleOrNull()
                         if (firstName.isNotBlank() && lastName.isNotBlank() && ageInt != null && weightDouble != null) {
-                            authViewModel.createProfile(firstName, lastName, ageInt, weightDouble)
+                            authViewModel.createProfile(firstName, lastName, ageInt, weightDouble, selectedUnit) // Pass unit
                         } else {
                             errorMessage = "Please fill all fields correctly."
                         }

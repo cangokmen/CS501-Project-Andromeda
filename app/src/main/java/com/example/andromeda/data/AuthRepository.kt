@@ -36,14 +36,16 @@ class AuthRepository(private val application: Application) {
         firstName: String,
         lastName: String,
         age: Int,
-        targetWeight: Double
+        targetWeight: Double,
+        weightUnit: String // <-- ADDED
     ): Result<Unit> {
         return try {
             val userProfile = UserProfile(
                 firstName = firstName,
                 lastName = lastName,
                 age = age,
-                targetWeight = targetWeight
+                targetWeight = targetWeight,
+                weightUnit = weightUnit // <-- ADDED
             )
             context.userStore.edit { preferences ->
                 preferences[USER_PROFILE_KEY] = gson.toJson(userProfile)

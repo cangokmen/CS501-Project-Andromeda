@@ -8,5 +8,6 @@ data class UserProfile(
     val firstName: String,
     val lastName: String,
     val age: Int,
-    val targetWeight: Double
+    val targetWeight: Double,
+    val weightUnit: String
 )

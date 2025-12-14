@@ -12,9 +12,13 @@ import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.math.RoundingMode
 
 // Extension property to create a DataStore instance
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "wellness_data_store")
+
+// --- CONVERSION CONSTANT ---
+private const val KG_TO_LBS = 2.20462
 
 class WellnessDataRepository(private val context: Context) {
 
@@ -32,6 +36,7 @@ class WellnessDataRepository(private val context: Context) {
 
     /**
      * Adds a new wellness data entry to the list.
+     * Weight is assumed to be in the app's standard unit (kg).
      */
     suspend fun addWellnessData(wellnessData: WellnessData) {
         Log.d("WellnessDataRepository", "Adding new data for date: ${wellnessData.timestamp}")
@@ -44,6 +49,7 @@ class WellnessDataRepository(private val context: Context) {
 
     /**
      * Updates an existing wellness data entry in the list.
+     * Weight is assumed to be in the app's standard unit (kg).
      */
     suspend fun updateWellnessData(wellnessData: WellnessData) {
         Log.d("WellnessDataRepository", "Updating data for entry ID: ${wellnessData.id}")
@@ -59,6 +65,45 @@ class WellnessDataRepository(private val context: Context) {
         }
     }
 
+    // --- NEW CONVERSION FUNCTION ---
+    /**
+     * Converts all historical weight data and the user's target weight to a new unit.
+     */
+    suspend fun convertAllWeightData(newUnit: String, authRepository: AuthRepository) {
+        Log.d("WellnessDataRepo", "Converting all data to $newUnit")
+        val userProfile = authRepository.getUserProfile() ?: return
+        val oldUnit = userProfile.weightUnit
+
+        if (oldUnit == newUnit) return // No conversion needed
+
+        val conversionFactor = if (newUnit == "lbs") KG_TO_LBS else 1 / KG_TO_LBS
+
+        // Convert historical data
+        context.dataStore.edit { preferences ->
+            val currentList = getMutableList(preferences)
+            val convertedList = currentList.map { entry ->
+                entry.copy(weight = (entry.weight * conversionFactor)
+                    .toBigDecimal().setScale(1, RoundingMode.HALF_UP).toDouble())
+            }
+            preferences[wellnessDataListKey] = gson.toJson(convertedList)
+        }
+
+        // Convert user's target weight and update their profile
+        val newTargetWeight = (userProfile.targetWeight * conversionFactor)
+            .toBigDecimal().setScale(1, RoundingMode.HALF_UP).toDouble()
+
+        authRepository.createOrUpdateUserProfile(
+            firstName = userProfile.firstName,
+            lastName = userProfile.lastName,
+            age = userProfile.age,
+            targetWeight = newTargetWeight,
+            weightUnit = newUnit
+        )
+        Log.d("WellnessDataRepo", "Data conversion complete.")
+    }
+    // --- END NEW FUNCTION ---
+
+
     /**
      * Deletes a single wellness data entry by its unique ID.
      */
@@ -73,7 +118,6 @@ class WellnessDataRepository(private val context: Context) {
 
     /**
      * Retrieves a single wellness data entry by its unique ID.
-     * This function resolves the "Unresolved reference" error.
      */
     suspend fun getWellnessDataById(id: String): WellnessData? {
         val currentList = allWellnessData.first()

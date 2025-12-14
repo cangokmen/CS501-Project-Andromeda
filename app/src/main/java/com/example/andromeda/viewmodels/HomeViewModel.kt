@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.math.RoundingMode
 
 // UI State for the HomeScreen - suggestions is now a List
 data class HomeUiState(
@@ -91,17 +92,29 @@ class HomeViewModel(
     }
 
     private fun createPrompt(data: List<WellnessData>, profile: UserProfile?): String {
+        // --- FIX: Use the profile's weight unit for the prompt ---
+        val weightUnit = profile?.weightUnit ?: "kg"
         val dataSummary = data.joinToString(separator = "\n") { entry ->
-            "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: "N/A"}, " +
+            val displayWeight = if (weightUnit == "lbs") {
+                (entry.weight * 2.20462).toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+            } else {
+                entry.weight.toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+            }
+            "- Date: ${entry.timestamp}, Weight: $displayWeight $weightUnit, Diet: ${entry.dietRating ?: "N/A"}, " +
                     "Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
         }
 
-        // --- FIX: Updated the weight unit to kg to match the rest of the app ---
         val userContext = if (profile != null) {
-            "The user's age is ${profile.age} and their target weight is ${profile.targetWeight} kg."
+            val targetWeight = (if (weightUnit == "lbs") {
+                (profile.targetWeight * 2.20462)
+            } else {
+                profile.targetWeight
+            }).toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+            "The user's age is ${profile.age} and their target weight is $targetWeight $weightUnit."
         } else {
             ""
         }
+        // --- END FIX ---
 
         return """
         Based on the following user information and recent wellness data:

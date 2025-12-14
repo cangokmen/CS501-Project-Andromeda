@@ -46,11 +46,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.andromeda.R
+import com.example.andromeda.data.UserPreferencesRepository
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
+import java.math.RoundingMode
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+// --- CONVERSION CONSTANT ---
+private const val KG_TO_LBS = 2.20462
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,8 +65,13 @@ fun HistoryScreen(
     onEditEntry: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val repository = remember { WellnessDataRepository(context) }
-    val allWellnessData by repository.allWellnessData.collectAsState(initial = emptyList())
+    val dataRepository = remember { WellnessDataRepository(context) }
+    val allWellnessData by dataRepository.allWellnessData.collectAsState(initial = emptyList())
+
+    // --- Fetch the current weight unit preference ---
+    val userPrefsRepo = remember { UserPreferencesRepository(context) }
+    val weightUnit by userPrefsRepo.weightUnit.collectAsState(initial = "kg")
+    // --- END ---
 
     // State to hold the date for the add/edit overlay
     var editingDate by remember { mutableStateOf<String?>(null) }
@@ -69,7 +79,6 @@ fun HistoryScreen(
     var showDatePicker by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // The HistoryScreen content is the base layer
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -91,14 +100,11 @@ fun HistoryScreen(
                 }
             }
 
-            // **FIX 1**: The `visibleData` variable is no longer needed, we can use `allWellnessData` directly.
-
-            // Collapse multiple entries on the same date -> keep latest one per day
             val perDayLatest: List<WellnessData> = remember(allWellnessData) {
                 allWellnessData
-                    .groupBy { it.timestamp.take(10) }   // group by yyyy-MM-dd
-                    .map { (_, list) -> list.last() }    // keep last entry for that date
-                    .sortedByDescending { it.timestamp } // newest day first
+                    .groupBy { it.timestamp.take(10) }
+                    .map { (_, list) -> list.last() }
+                    .sortedByDescending { it.timestamp }
             }
 
             if (perDayLatest.isEmpty()) {
@@ -109,8 +115,8 @@ fun HistoryScreen(
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(perDayLatest) { data ->
-                        // The onEdit lambda from WellnessDataCard now calls the onEditEntry from the NavHost
-                        WellnessDataCard(data = data, onEdit = { onEditEntry(data.id.toString()) })
+                        // Pass the collected weightUnit to the card
+                        WellnessDataCard(data = data, weightUnit = weightUnit, onEdit = { onEditEntry(data.id) })
                     }
                 }
             }
@@ -149,6 +155,7 @@ fun HistoryScreen(
             enter = slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }),
             exit = slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
         ) {
+            // The AddScreen correctly fetches the latest unit preference when it becomes visible
             AddScreen(
                 selectedQuestions = selectedQuestions,
                 wellnessDataId = editingDate,
@@ -161,7 +168,7 @@ fun HistoryScreen(
 
 @SuppressLint("SimpleDateFormat")
 @Composable
-fun WellnessDataCard(data: WellnessData, onEdit: () -> Unit) {
+fun WellnessDataCard(data: WellnessData, weightUnit: String, onEdit: () -> Unit) {
     val date = remember(data.timestamp) {
         try {
             val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -176,6 +183,18 @@ fun WellnessDataCard(data: WellnessData, onEdit: () -> Unit) {
             data.timestamp.take(10)
         }
     }
+
+    // --- FIX: Apply conversion logic directly in the composable ---
+    val displayWeight = remember(data.weight, weightUnit) {
+        val convertedWeight = if (weightUnit == "lbs") {
+            data.weight * KG_TO_LBS
+        } else {
+            data.weight
+        }
+        convertedWeight.toBigDecimal().setScale(1, RoundingMode.HALF_UP).toString()
+    }
+    // --- END FIX ---
+
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -202,8 +221,8 @@ fun WellnessDataCard(data: WellnessData, onEdit: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        // **FIX 3**: Changed "lbs" to "kg" to match the rest of the app.
-                        "${data.weight} kg",
+                        // Use the calculated displayWeight and the weightUnit
+                        text = "$displayWeight $weightUnit",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.andromeda.data.UserPreferencesRepository
 import com.example.andromeda.ui.theme.AndromedaTheme
 import com.example.andromeda.viewmodels.AddViewModel
 import kotlin.math.roundToInt
@@ -30,21 +31,27 @@ fun AddScreen(
     selectedQuestions: Set<String>,
     wellnessDataId: String? = null,
     onSaveComplete: () -> Unit,
-    viewModel: AddViewModel = viewModel(
-        key = wellnessDataId ?: "new_entry",
+) {
+    val context = LocalContext.current
+
+    // The key is still important to ensure the ViewModel re-initializes
+    // for new entries vs edits, but the unit is now handled internally.
+    val viewModel: AddViewModel = viewModel(
+        key = "entry_$wellnessDataId",
         factory = AddViewModel.Factory(
-            LocalContext.current.applicationContext as Application,
+            context.applicationContext as Application,
             selectedQuestions,
             wellnessDataId
         )
     )
-) {
+
+    // --- 4. SIMPLIFIED: Get ALL state from the ViewModel ---
     val uiState by viewModel.uiState.collectAsState()
+
     val isWeightEntered = uiState.weight.isNotBlank()
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     if (uiState.showSaveConfirmation) {
-        // This is now triggered by both Save and Delete
         LaunchedEffect(Unit) {
             onSaveComplete()
         }
@@ -94,9 +101,11 @@ fun AddScreen(
                     style = MaterialTheme.typography.headlineMedium
                 )
 
+                // --- 5. Use the unit from the ViewModel's state ---
                 WeightInput(
                     weight = uiState.weight,
-                    onWeightChange = viewModel::onWeightChange
+                    onWeightChange = viewModel::onWeightChange,
+                    unit = uiState.weightUnit
                 )
 
                 val questionOrder = listOf("DIET", "ACTIVITY", "SLEEP", "WATER", "PROTEIN")
@@ -135,14 +144,12 @@ fun AddScreen(
 
                 Spacer(modifier = Modifier.weight(1f, fill = false))
 
-                // --- ACTION BUTTONS ROW ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (uiState.isEditing) {
-                        // Show delete button only when editing
                         FloatingActionButton(
                             onClick = { showDeleteConfirmDialog = true },
                             containerColor = Color(0xFFF55F5A),
@@ -170,16 +177,12 @@ fun AddScreen(
 }
 
 
-// A confirmation dialog is no longer needed here, as we use a LaunchedEffect
-// to handle navigation, and a separate alert for deletion confirmation.
-
-
 @Composable
-fun WeightInput(weight: String, onWeightChange: (String) -> Unit) {
+fun WeightInput(weight: String, onWeightChange: (String) -> Unit, unit: String) {
     OutlinedTextField(
         value = weight,
         onValueChange = onWeightChange,
-        label = { Text("Weight (lb)") },
+        label = { Text("Weight ($unit)") },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         singleLine = true,
         modifier = Modifier.fillMaxWidth()
@@ -229,4 +232,3 @@ fun AddScreenPreview() {
         )
     }
 }
-

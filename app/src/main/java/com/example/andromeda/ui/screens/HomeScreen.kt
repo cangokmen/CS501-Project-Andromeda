@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.andromeda.data.UserPreferencesRepository
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
 import com.example.andromeda.viewmodels.HomeViewModel
@@ -39,6 +40,11 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import java.math.RoundingMode
+
+
+// --- CONVERSION CONSTANT ---
+private const val KG_TO_LBS = 2.20462
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -51,6 +57,11 @@ fun HomeScreen(
     val repository = remember { WellnessDataRepository(context) }
     val allWellnessData by repository.allWellnessData.collectAsState(initial = emptyList())
     val uiState by viewModel.uiState.collectAsState()
+
+    // --- FIX: Fetch the weight unit preference ---
+    val userPrefsRepo = remember { UserPreferencesRepository(context) }
+    val weightUnit by userPrefsRepo.weightUnit.collectAsState(initial = "kg")
+    // --- END FIX ---
 
     // 2) Collapse multiple entries on the same date -> keep latest per day
     val dailyData = remember(allWellnessData) {
@@ -111,18 +122,26 @@ fun HomeScreen(
                     when (page) {
                         1 -> {
                             if (dailyData.isEmpty()) {
-                                Text("No wellness data has been saved yet.")
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("No wellness data has been saved yet.")
+                                }
                             } else {
                                 Column(
                                     modifier = Modifier.fillMaxSize(),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
+                                    // --- FIX: Pass weightUnit to the chart ---
                                     WeightLineChart(
                                         data = dailyData,
+                                        weightUnit = weightUnit,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .weight(1f)
                                     )
+                                    // --- END FIX ---
                                 }
                             }
                         }
@@ -132,10 +151,13 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                // --- FIX: Pass weightUnit to the calendar ---
                                 WeightCalendar(
                                     weightData = dailyData,
-                                    modifier = Modifier.fillMaxSize()//bounded
+                                    weightUnit = weightUnit,
+                                    modifier = Modifier.fillMaxSize()
                                 )
+                                // --- END FIX ---
                             }
                         }
                     }
@@ -154,7 +176,10 @@ fun HomeScreen(
                 uiState.isLoading -> CircularProgressIndicator()
                 uiState.error != null -> Text(uiState.error!!, color = MaterialTheme.colorScheme.error)
                 else -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                         uiState.suggestions.forEach { suggestion ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -180,14 +205,22 @@ fun HomeScreen(
 @Composable
 fun WeightLineChart(
     data: List<WellnessData>,
+    weightUnit: String, // <-- ADDED
     modifier: Modifier = Modifier
 ) {
-    val recentSorted = remember(data) {
+    val recentSorted = remember(data, weightUnit) { // <-- Re-trigger on unit change
         val today = java.time.LocalDate.now()
         val cutoff = today.minusDays(14)
         data.mapNotNull { wd ->
             val d = runCatching { java.time.LocalDate.parse(wd.timestamp.take(10)) }.getOrNull()
-            d?.let { Triple(wd.weight, it, wd.timestamp) }
+            // --- FIX: Convert weight for display ---
+            val displayWeight = if (weightUnit == "lbs") {
+                wd.weight * KG_TO_LBS
+            } else {
+                wd.weight
+            }
+            // --- END FIX ---
+            d?.let { Triple(displayWeight, it, wd.timestamp) }
         }
             .filter { it.second >= cutoff }
             .sortedBy { it.second }
@@ -278,186 +311,153 @@ fun WeightLineChart(
         drawPath(path, color = lineColor, style = Stroke(width = 4f))
         for (i in 0 until n) drawCircle(pointColor, radius = 6f, center = xy(i))
 
-        drawContext.canvas.nativeCanvas.drawText("Date", size.width / 2 - 30f, size.height + 20f, paintX)
-        drawContext.canvas.nativeCanvas.drawText("Weight (lb)", paddingLeft - 120f, paddingTop - 50f, paintY)
+        drawContext.canvas.nativeCanvas.drawText("Date", size.width / 2 - 30f, size.height - (paddingBottom/4) , paintX)
+        // --- FIX: Dynamic Y-axis label ---
+        drawContext.canvas.nativeCanvas.drawText("Weight ($weightUnit)", paddingLeft - 120f, paddingTop - 50f, paintY)
+        // --- END FIX ---
     }
 }
 
 /* ----------------------- CALENDAR (STICKY HEADER) ----------------------- */
 
-private data class HomeCalendarCell(
-    val year: Int,
-    val month: Int, // 0-based
-    val day: Int,
-    val inCurrentMonth: Boolean
-)
-
 @Composable
 private fun WeightCalendar(
     weightData: List<WellnessData>,
+    weightUnit: String,
     modifier: Modifier = Modifier
 ) {
     val monthFormatter = remember { SimpleDateFormat("MMM yyyy", Locale.getDefault()) }
 
-    val weightByDate = remember(weightData) {
-        weightData.associate { it.timestamp.take(10) to it.weight }
+    // --- FIX: Convert weight based on unit for the calendar view ---
+    val weightByDate = remember(weightData, weightUnit) {
+        weightData.associate {
+            val displayWeight = if (weightUnit == "lbs") {
+                it.weight * KG_TO_LBS
+            } else {
+                it.weight
+            }
+            it.timestamp.take(10) to displayWeight
+        }
     }
+    // --- END FIX ---
 
     val today = remember { Calendar.getInstance() }
     var displayMonth by rememberSaveable { mutableStateOf(today.get(Calendar.MONTH)) }
     var displayYear by rememberSaveable { mutableStateOf(today.get(Calendar.YEAR)) }
 
-    val firstOfMonth = remember(displayYear, displayMonth) {
+    val calendar = remember(displayYear, displayMonth) {
         Calendar.getInstance().apply {
             set(Calendar.YEAR, displayYear)
             set(Calendar.MONTH, displayMonth)
             set(Calendar.DAY_OF_MONTH, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
         }
     }
 
-    val monthLabel = remember(displayYear, displayMonth) {
-        monthFormatter.format(firstOfMonth.time)
-    }
+    val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+    val firstDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+    val emptyCellsBefore = (firstDayOfWeek - Calendar.SUNDAY + 7) % 7
 
-    val cells: List<HomeCalendarCell> = remember(displayYear, displayMonth) {
-        val firstDow = firstOfMonth.get(Calendar.DAY_OF_WEEK) // 1=Sunday
-        val leading = firstDow - Calendar.SUNDAY // 0..6
-
-        val start = (firstOfMonth.clone() as Calendar).apply {
-            add(Calendar.DAY_OF_MONTH, -leading)
-        }
-
-        val endOfMonth = (firstOfMonth.clone() as Calendar).apply {
-            set(Calendar.DAY_OF_MONTH, firstOfMonth.getActualMaximum(Calendar.DAY_OF_MONTH))
-        }
-
-        val lastDayIf35 = (start.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 34) }
-        val totalCells = if (lastDayIf35.before(endOfMonth)) 42 else 35
-
-        buildList {
-            repeat(totalCells) { i ->
-                val c = (start.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, i) }
-                add(
-                    HomeCalendarCell(
-                        year = c.get(Calendar.YEAR),
-                        month = c.get(Calendar.MONTH),
-                        day = c.get(Calendar.DAY_OF_MONTH),
-                        inCurrentMonth = (c.get(Calendar.YEAR) == displayYear && c.get(Calendar.MONTH) == displayMonth)
-                    )
-                )
-            }
-        }
-    }
-
-    val scrollState = rememberScrollState()
-
-    Column(modifier = modifier.fillMaxSize()) {
-
-        // ---- Sticky header ----
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
+    Column(modifier = modifier) {
+        // --- Month Header ---
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = {
-                    if (displayMonth == 0) {
-                        displayMonth = 11
-                        displayYear -= 1
-                    } else displayMonth -= 1
-                }) { Icon(Icons.Filled.ArrowBack, contentDescription = "Previous month") }
-
-                Text(monthLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-
-                IconButton(onClick = {
-                    if (displayMonth == 11) {
-                        displayMonth = 0
-                        displayYear += 1
-                    } else displayMonth += 1
-                }) { Icon(Icons.Filled.ArrowForward, contentDescription = "Next month") }
+            IconButton(onClick = {
+                if (displayMonth == 0) {
+                    displayMonth = 11
+                    displayYear--
+                } else {
+                    displayMonth--
+                }
+            }) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Previous Month")
             }
+            Text(
+                monthFormatter.format(calendar.time),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            IconButton(onClick = {
+                if (displayMonth == 11) {
+                    displayMonth = 0
+                    displayYear++
+                } else {
+                    displayMonth++
+                }
+            }) {
+                Icon(Icons.Default.ArrowForward, contentDescription = "Next Month")
+            }
+        }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            val weekDays = listOf("S", "M", "T", "W", "T", "F", "S")
-            Row(modifier = Modifier.fillMaxWidth()) {
-                weekDays.forEach {
-                    Text(
-                        it,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+        // --- Days of Week Header ---
+        Row(modifier = Modifier.fillMaxWidth()) {
+            listOf("S", "M", "T", "W", "T", "F", "S").forEach { day ->
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(day, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 }
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
         }
+        Spacer(Modifier.height(8.dp))
 
-        // ---- Scrollable grid (bounded height) ----
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)                 // IMPORTANT: gives finite height -> no crash
-                .verticalScroll(scrollState)
-        ) {
-            cells.chunked(7).forEach { week ->
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    week.forEach { cell ->
-                        val alphaText = if (cell.inCurrentMonth) 1f else 0.25f
-                        val circleAlpha = if (cell.inCurrentMonth) 0.10f else 0.05f
-
-                        val key = "%04d-%02d-%02d".format(cell.year, cell.month + 1, cell.day)
-                        val weight = weightByDate[key]
-
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(vertical = 10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = circleAlpha),
-                                        shape = CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = cell.day.toString(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = alphaText)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            if (cell.inCurrentMonth && weight != null) {
-                                Text(
-                                    text = "${weight.toInt()} lb",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            } else {
-                                Spacer(modifier = Modifier.height(12.dp))
-                            }
-                        }
+        // --- Calendar Grid ---
+        val totalCells = 42 // 6 weeks
+        for (week in 0 until 6) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                for (day in 0 until 7) {
+                    val cellIndex = week * 7 + day
+                    val dayOfMonth = cellIndex - emptyCellsBefore + 1
+                    if (cellIndex < emptyCellsBefore || dayOfMonth > daysInMonth) {
+                        Box(modifier = Modifier.weight(1f).aspectRatio(1f)) // Empty cell
+                    } else {
+                        val dateKey = String.format(
+                            "%04d-%02d-%02d",
+                            displayYear,
+                            displayMonth + 1,
+                            dayOfMonth
+                        )
+                        val weight = weightByDate[dateKey]
+                        CalendarDay(day = dayOfMonth.toString(), weight = weight)
                     }
                 }
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(8.dp))
+@Composable
+fun RowScope.CalendarDay(day: String, weight: Double?) {
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .aspectRatio(1f),
+        contentAlignment = Alignment.Center
+    ) {
+        if (weight != null) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        CircleShape
+                    )
+            ) {
+                Text(day, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    text = weight.toBigDecimal().setScale(1, RoundingMode.HALF_UP).toString(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        } else {
+            Text(day, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

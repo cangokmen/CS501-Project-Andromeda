@@ -72,7 +72,8 @@ class AccountViewModel(private val repository: AuthRepository) : ViewModel() {
                     firstName = it.firstName,
                     lastName = it.lastName,
                     age = it.age,
-                    targetWeight = it.targetWeight
+                    targetWeight = it.targetWeight,
+                    weightUnit = it.weightUnit
                 )
             }
         }

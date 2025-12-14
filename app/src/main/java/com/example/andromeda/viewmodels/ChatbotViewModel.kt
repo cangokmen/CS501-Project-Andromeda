@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.math.RoundingMode
 
 // Represents a single message in the chat.
 data class ChatMessage(
@@ -129,9 +130,16 @@ class ChatbotViewModel(
 
     // Creates a detailed prompt with the user's profile and historical data
     private fun createWellnessContextPrompt(data: List<WellnessData>, profile: UserProfile?): String {
+
+        val weightUnit = profile?.weightUnit ?: "kg"
+
         val userContext = if (profile != null) {
-            // --- FIX: Updated the weight unit to match what is saved (kg) ---
-            "The user's name is ${profile.firstName}, age is ${profile.age}, and their target weight is ${profile.targetWeight} kg."
+            val targetWeight = (if (weightUnit == "lbs") {
+                (profile.targetWeight * 2.20462)
+            } else {
+                profile.targetWeight
+            }).toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+            "The user's name is ${profile.firstName}, age is ${profile.age}, and their target weight is $targetWeight $weightUnit."
         } else {
             "The user's profile information (name, age, target weight) is not available."
         }
@@ -140,7 +148,12 @@ class ChatbotViewModel(
             "The user has no wellness data logged yet."
         } else {
             data.takeLast(30).joinToString(separator = "\n") { entry ->
-                "- Date: ${entry.timestamp}, Weight: ${entry.weight} kg, Diet: ${entry.dietRating ?: "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
+                val displayWeight = if (weightUnit == "lbs") {
+                    (entry.weight * 2.20462).toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+                } else {
+                    entry.weight.toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+                }
+                "- Date: ${entry.timestamp}, Weight: $displayWeight $weightUnit, Diet: ${entry.dietRating ?: "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
             }
         }
 

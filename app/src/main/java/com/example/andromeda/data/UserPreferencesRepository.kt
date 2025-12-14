@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,7 @@ class UserPreferencesRepository(private val context: Context) {
         val IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
         val USE_BIGGER_TEXT = booleanPreferencesKey("use_bigger_text")
         val SELECTED_QUESTIONS = stringSetPreferencesKey("selected_questions")
+        val WEIGHT_UNIT = stringPreferencesKey("weight_unit") // <-- ADDED
     }
 
     // --- UI Preference Flows ---
@@ -43,6 +45,11 @@ class UserPreferencesRepository(private val context: Context) {
             }
         }
 
+    // --- NEW FLOW ---
+    val weightUnit: Flow<String> = context.userPreferencesDataStore.data
+        .map { prefs -> prefs[PreferencesKeys.WEIGHT_UNIT] ?: "kg" }
+
+
     // --- UI Preference Save Functions ---
 
     suspend fun saveThemePreference(isDarkTheme: Boolean) {
@@ -60,6 +67,13 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun saveSelectedQuestions(questions: Set<String>) {
         context.userPreferencesDataStore.edit { prefs ->
             prefs[PreferencesKeys.SELECTED_QUESTIONS] = questions
+        }
+    }
+
+    // --- NEW FUNCTION ---
+    suspend fun saveWeightUnitPreference(unit: String) {
+        context.userPreferencesDataStore.edit { prefs ->
+            prefs[PreferencesKeys.WEIGHT_UNIT] = unit
         }
     }
 
