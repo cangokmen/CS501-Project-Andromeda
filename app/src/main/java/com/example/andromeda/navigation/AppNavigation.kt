@@ -5,20 +5,26 @@ import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.andromeda.ui.screens.AddScreen
 import com.example.andromeda.ui.screens.ChatbotScreen
 import com.example.andromeda.ui.screens.HistoryScreen
 import com.example.andromeda.ui.screens.HomeScreen
+import com.example.andromeda.ui.screens.RegisterScreen
 import com.example.andromeda.ui.screens.SettingsScreen
-import com.example.andromeda.ui.screens.LoginScreen
+import com.example.andromeda.viewmodels.RegisterViewModel
 
 sealed class Screen(val route: String) {
-    object Login : Screen("login")
+    object Register : Screen("register")
     object Home : Screen("home")
     object History : Screen("history")
     object Add : Screen("add")
+    object EditEntry : Screen("edit/{wellnessDataId}") {
+        fun createRoute(wellnessDataId: String) = "edit/$wellnessDataId"
+    }
     object Settings : Screen("settings")
     object Chatbot : Screen("chatbot")
 }
@@ -35,20 +41,21 @@ fun AppNavHost(
     selectedQuestions: Set<String>,
     onSetQuestions: (Set<String>) -> Unit,
     onLogout: () -> Unit,
-    isLoggedIn: Boolean,
-    currentUserEmail: String?
+    hasProfile: Boolean,
+    registerViewModel: RegisterViewModel
 ) {
     NavHost(
         navController = navController,
-        startDestination = if (isLoggedIn) Screen.Home.route else Screen.Login.route,
+        startDestination = if (hasProfile) Screen.Home.route else Screen.Register.route,
         modifier = modifier
     ) {
-        // LOGIN
-        composable(Screen.Login.route) {
-            LoginScreen(
-                onLoggedIn = {
+        // REGISTER SCREEN
+        composable(Screen.Register.route) {
+            RegisterScreen(
+                registerViewModel = registerViewModel,
+                onRegistrationSuccess = {
                     navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                        popUpTo(Screen.Register.route) { inclusive = true }
                     }
                 }
             )
@@ -56,24 +63,41 @@ fun AppNavHost(
 
         // HOME
         composable(Screen.Home.route) {
-            HomeScreen(currentUserEmail = currentUserEmail)
+            HomeScreen()
         }
 
         // HISTORY
         composable(Screen.History.route) {
             HistoryScreen(
                 selectedQuestions = selectedQuestions,
-                currentUserEmail = currentUserEmail
+                onEditEntry = { wellnessDataId ->
+                    navController.navigate(Screen.EditEntry.createRoute(wellnessDataId))
+                }
             )
         }
 
-        // ADD
+        // ADD (For new entries)
         composable(Screen.Add.route) {
             AddScreen(
                 selectedQuestions = selectedQuestions,
-                currentUserEmail = currentUserEmail
+                wellnessDataId = null, // Explicitly null for a new entry
+                onSaveComplete = { navController.popBackStack() }
             )
         }
+
+        // EDIT (For existing entries)
+        composable(
+            route = Screen.EditEntry.route,
+            arguments = listOf(navArgument("wellnessDataId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val wellnessDataId = backStackEntry.arguments?.getString("wellnessDataId")
+            AddScreen(
+                selectedQuestions = selectedQuestions,
+                wellnessDataId = wellnessDataId,
+                onSaveComplete = { navController.popBackStack() }
+            )
+        }
+
 
         // SETTINGS
         composable(Screen.Settings.route) {

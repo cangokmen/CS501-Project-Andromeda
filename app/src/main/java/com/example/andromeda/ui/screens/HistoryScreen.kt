@@ -1,6 +1,9 @@
 package com.example.andromeda.ui.screens
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,100 +18,202 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.andromeda.R
+import com.example.andromeda.data.UserPreferencesRepository
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
+import java.math.RoundingMode
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.Calendar
+import java.util.TimeZone
 
+// --- CONVERSION CONSTANT ---
+private const val KG_TO_LBS = 2.20462
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     selectedQuestions: Set<String>,
-    currentUserEmail: String?
+    // Callback to navigate to the Add/Edit screen
+    onEditEntry: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val repository = remember { WellnessDataRepository(context) }
-    val allWellnessData by repository.allWellnessData.collectAsState(initial = emptyList())
+    val dataRepository = remember { WellnessDataRepository(context) }
+    val allWellnessData by dataRepository.allWellnessData.collectAsState(initial = emptyList())
 
-    // Filter to this user's data (if we know the email)
-    val visibleData = remember(allWellnessData, currentUserEmail) {
-        if (currentUserEmail.isNullOrBlank()) {
-            allWellnessData
-        } else {
-            allWellnessData.filter { it.userEmail == currentUserEmail }
-        }
-    }
+    // --- Fetch the current weight unit preference ---
+    val userPrefsRepo = remember { UserPreferencesRepository(context) }
+    val weightUnit by userPrefsRepo.weightUnit.collectAsState(initial = "kg")
 
-    // Collapse multiple entries on the same date -> keep latest one per day
-    val perDayLatest: List<WellnessData> = remember(visibleData) {
-        visibleData
-            .groupBy { it.timestamp.take(10) }   // group by yyyy-MM-dd
-            .map { (_, list) -> list.last() }    // keep last entry for that date
-            .sortedByDescending { it.timestamp } // newest day first
-    }
+    // State to hold the date for the add/edit overlay
+    var editingDate by remember { mutableStateOf<String?>(null) }
+    // State for managing the DatePickerDialog
+    var showDatePicker by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            "History",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        if (perDayLatest.isEmpty()) {
-            Text("No wellness data has been saved yet.")
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 8.dp)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(perDayLatest) { data ->
-                    WellnessDataCard(data = data)
+                Text(
+                    "History",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                Button(onClick = { showDatePicker = true }) {
+                    Text("Add Past Entry")
                 }
             }
+
+            /*
+             * AI Suggested this: To prevent showing multiple entries for the same day,
+             * this logic groups all data by date, takes only the most recent entry
+             * from each group, and then sorts the result. It's an efficient way to process
+             * the list for display.
+             */
+            val perDayLatest: List<WellnessData> = remember(allWellnessData) {
+                allWellnessData
+                    .groupBy { it.timestamp.take(10) }
+                    .map { (_, list) -> list.last() }
+                    .sortedByDescending { it.timestamp }
+            }
+
+            if (perDayLatest.isEmpty()) {
+                Text("No wellness data has been saved yet.")
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    items(perDayLatest) { data ->
+                        // Pass the collected weightUnit to the card
+                        WellnessDataCard(data = data, weightUnit = weightUnit, onEdit = { onEditEntry(data.id) })
+                    }
+                }
+            }
+        }
+
+        if (showDatePicker) {
+            val datePickerState = rememberDatePickerState()
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDatePicker = false
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+                                    timeZone = TimeZone.getTimeZone("UTC")
+                                }
+                                editingDate = formatter.format(Date(millis))
+                            }
+                        }
+                    ) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
+        }
+
+        AnimatedVisibility(
+            visible = editingDate != null,
+            enter = slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }),
+            exit = slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
+        ) {
+            // The AddScreen correctly fetches the latest unit preference when it becomes visible
+            AddScreen(
+                selectedQuestions = selectedQuestions,
+                wellnessDataId = editingDate,
+                onSaveComplete = { editingDate = null }
+            )
         }
     }
 }
 
+
 @SuppressLint("SimpleDateFormat")
 @Composable
-fun WellnessDataCard(data: WellnessData) {
-    // Formatter for a more readable date
+fun WellnessDataCard(data: WellnessData, weightUnit: String, onEdit: () -> Unit) {
     val date = remember(data.timestamp) {
         try {
-            // Use SimpleDateFormat for backward compatibility
-            val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            // The input string is in UTC format ("yyyy-MM-dd").
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            // Once parsed, we format it for display using the device's default timezone.
             val outputFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+
             val parsedDate = inputFormat.parse(data.timestamp.take(10))
+
             if (parsedDate != null) {
-                outputFormat.format(parsedDate)
+                val calendar = Calendar.getInstance().apply {
+                    time = parsedDate
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
+                outputFormat.format(calendar.time)
             } else {
-                data.timestamp.take(10) // Fallback if parsing fails
+                data.timestamp.take(10) // Fallback
             }
         } catch (e: Exception) {
-            data.timestamp.take(10) // Fallback to original format on any error
+            data.timestamp.take(10) // Fallback on error
         }
+    }
+
+    /*
+     * AI Suggested this: Using `remember` with the data and unit as keys ensures the
+     * weight conversion is only re-calculated when necessary, not on every recomposition.
+     * This is more performant than calculating it directly in the Text composable.
+     */
+    val displayWeight = remember(data.weight, weightUnit) {
+        val convertedWeight = if (weightUnit == "lbs") {
+            data.weight * KG_TO_LBS
+        } else {
+            data.weight
+        }
+        convertedWeight.toBigDecimal().setScale(1, RoundingMode.HALF_UP).toString()
     }
 
     Card(
@@ -117,7 +222,6 @@ fun WellnessDataCard(data: WellnessData) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -137,24 +241,29 @@ fun WellnessDataCard(data: WellnessData) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        "${data.weight} lbs",
+                        // Use the calculated displayWeight and the weightUnit
+                        text = "$displayWeight $weightUnit",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Entry",
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                    }
                 }
             }
 
             Divider(modifier = Modifier.padding(vertical = 12.dp))
 
-            // Metrics Grid
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (data.dietRating != null || data.activityLevel != null) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Box(modifier = Modifier.weight(1f)) {
                             data.dietRating?.let {
                                 MetricItem(painterRes = R.drawable.diet, label = "Diet", value = "$it/10")
@@ -168,9 +277,7 @@ fun WellnessDataCard(data: WellnessData) {
                     }
                 }
                 if (data.sleepHours != null || data.waterIntake != null) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Box(modifier = Modifier.weight(1f)) {
                             data.sleepHours?.let {
                                 MetricItem(painterRes = R.drawable.sleep, label = "Sleep", value = "$it/10")
@@ -184,9 +291,7 @@ fun WellnessDataCard(data: WellnessData) {
                     }
                 }
                 if (data.proteinIntake != null) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Box(modifier = Modifier.weight(1f)) {
                             MetricItem(
                                 painterRes = R.drawable.protein,
@@ -194,27 +299,10 @@ fun WellnessDataCard(data: WellnessData) {
                                 value = "${data.proteinIntake}/10"
                             )
                         }
-                        Spacer(modifier = Modifier.weight(1f)) // Add spacer to keep alignment
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun MetricItem(icon: ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.secondary
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Column {
-            Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(text = value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
         }
     }
 }

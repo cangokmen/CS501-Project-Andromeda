@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Andromeda"
 include(":app")
- 
+include(":watch")

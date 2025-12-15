@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.andromeda.BuildConfig
+import com.example.andromeda.data.RegisterRepository
+import com.example.andromeda.data.UserProfile
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
 import com.google.ai.client.generativeai.GenerativeModel
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.math.RoundingMode
 
 // Represents a single message in the chat.
 data class ChatMessage(
@@ -31,13 +34,16 @@ data class ChatbotUiState(
     val userInput: String = ""
 )
 
-class ChatbotViewModel(private val repository: WellnessDataRepository) : ViewModel() {
+class ChatbotViewModel(
+    private val wellnessRepo: WellnessDataRepository,
+    private val authRepo: RegisterRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatbotUiState())
     val uiState: StateFlow<ChatbotUiState> = _uiState.asStateFlow()
 
     private val generativeModel = GenerativeModel(
-        modelName = "gemini-2.5-flash-lite", // Using a model suited for chat
+        modelName = "gemini-2.5-flash-lite", // Updated model name
         apiKey = BuildConfig.GEMINI_API_KEY
     )
 
@@ -76,16 +82,23 @@ class ChatbotViewModel(private val repository: WellnessDataRepository) : ViewMod
         }
         chatHistory.add(content("user") { text(userText) })
 
-        // Add a temporary processing message
+
+        /* AI Suggested this: This pattern improves the user experience by providing
+         * immediate feedback. A temporary "processing" message is added to the UI
+         * while the actual model response is being generated in the background.
+         * Add a temporary processing message
+         */
         val processingMessage = ChatMessage("...", isFromUser = false, isProcessing = true)
         _uiState.update { it.copy(messages = it.messages + processingMessage) }
 
         // Launch a coroutine to get the response from the model
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Fetch the user's entire wellness history
-                val wellnessData = repository.allWellnessData.first()
-                val contextPrompt = createWellnessContextPrompt(wellnessData)
+                val userProfile = authRepo.getUserProfile()
+                val wellnessData = wellnessRepo.allWellnessData.first()
+
+                // Create the context prompt with the fetched profile
+                val contextPrompt = createWellnessContextPrompt(wellnessData, userProfile)
 
                 // The chat object allows for multi-turn conversations
                 val chat = generativeModel.startChat(
@@ -119,20 +132,47 @@ class ChatbotViewModel(private val repository: WellnessDataRepository) : ViewMod
         }
     }
 
-    // Creates a detailed prompt with the user's historical data
-    private fun createWellnessContextPrompt(data: List<WellnessData>): String {
-        if (data.isEmpty()) {
-            return "The user has no wellness data logged yet."
+    /* AI Suggested this: To achieve personalized responses, this function was created
+     * to dynamically build a detailed context prompt. It aggregates the user's
+     * profile and their recent wellness data into a single block of text for the LLM.
+     * Creates a detailed prompt with the user's profile and historical data
+     */
+    private fun createWellnessContextPrompt(data: List<WellnessData>, profile: UserProfile?): String {
+
+        val weightUnit = profile?.weightUnit ?: "kg"
+
+        val userContext = if (profile != null) {
+            val targetWeight = (if (weightUnit == "lbs") {
+                (profile.targetWeight * 2.20462)
+            } else {
+                profile.targetWeight
+            }).toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+            "The user's name is ${profile.firstName}, age is ${profile.age}, and their target weight is $targetWeight $weightUnit."
+        } else {
+            "The user's profile information (name, age, target weight) is not available."
         }
-        val dataSummary = data.takeLast(30).joinToString(separator = "\n") { entry ->
-            "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: 
-            "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
+
+        val dataSummary = if (data.isEmpty()) {
+            "The user has no wellness data logged yet."
+        } else {
+            data.takeLast(30).joinToString(separator = "\n") { entry ->
+                val displayWeight = if (weightUnit == "lbs") {
+                    (entry.weight * 2.20462).toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+                } else {
+                    entry.weight.toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+                }
+                "- Date: ${entry.timestamp}, Weight: $displayWeight $weightUnit, Diet: ${entry.dietRating ?: "N/A"}, Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
+            }
         }
+
         return """
-        You are a friendly and encouraging wellness assistant. The user will ask you questions about their health and progress.
-        Use the following historical wellness data to provide personalized, insightful, and supportive responses.
+        You are a friendly and encouraging wellness assistant named 'Andy'. The user will ask you questions about their health and progress.
+        Use the following user profile and historical wellness data to provide personalized, insightful, and supportive responses.
         Your goal is to help the user understand their trends and motivate them to achieve their goals.
         Keep your answers concise and easy to understand.
+        
+        User Profile:
+        $userContext
 
         Here is the user's data from the last 30 days:
         $dataSummary
@@ -140,12 +180,15 @@ class ChatbotViewModel(private val repository: WellnessDataRepository) : ViewMod
     }
 
 
-    // Factory to create the ViewModel with its dependency
+    // Factory now provides both repositories
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ChatbotViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return ChatbotViewModel(WellnessDataRepository(application)) as T
+                return ChatbotViewModel(
+                    WellnessDataRepository(application),
+                    RegisterRepository(application) // Provide AuthRepository
+                ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.andromeda.BuildConfig
+import com.example.andromeda.data.RegisterRepository
+import com.example.andromeda.data.UserProfile
 import com.example.andromeda.data.WellnessData
 import com.example.andromeda.data.WellnessDataRepository
 import com.google.ai.client.generativeai.GenerativeModel
@@ -15,32 +17,54 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.math.RoundingMode
 
 // UI State for the HomeScreen - suggestions is now a List
 data class HomeUiState(
     val suggestions: List<String> = emptyList(), // Changed to List<String>
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    // Add user's first name to the state for a personalized greeting
+    val userFirstName: String? = null
 )
 
-class HomeViewModel(private val repository: WellnessDataRepository) : ViewModel() {
+class HomeViewModel(
+    private val wellnessRepo: WellnessDataRepository,
+    private val authRepo: RegisterRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
+
+    init {
+        // Load the user's name when the ViewModel is created
+        loadUserName()
+    }
+
+    private fun loadUserName() {
+        viewModelScope.launch {
+            val profile = authRepo.getUserProfile()
+            profile?.let {
+                _uiState.update { currentState ->
+                    currentState.copy(userFirstName = it.firstName)
+                }
+            }
+        }
+    }
 
     fun generateSuggestions() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                // Fetch the most recent data
-                val wellnessData = repository.allWellnessData.first().takeLast(7) // Get last 7 entries
+                val userProfile = authRepo.getUserProfile()
+                val wellnessData = wellnessRepo.allWellnessData.first().takeLast(7) // Get last 7 entries
+
                 if (wellnessData.isEmpty()) {
                     _uiState.update { it.copy(suggestions = listOf("Not enough data to generate suggestions. Please add more entries."), isLoading = false) }
                     return@launch
                 }
 
-                // Create the prompt
-                val prompt = createPrompt(wellnessData)
+                val prompt = createPrompt(wellnessData, userProfile)
 
                 val responseText = withContext(Dispatchers.IO) {
                     val generativeModel = GenerativeModel(
@@ -65,14 +89,40 @@ class HomeViewModel(private val repository: WellnessDataRepository) : ViewModel(
         }
     }
 
-    private fun createPrompt(data: List<WellnessData>): String {
+    /*
+     * AI Suggested this: To get personalized and context-aware results from the LLM,
+     * this function was designed to dynamically construct a detailed prompt. It combines a
+     * system instruction, the user's personal profile details, and their recent
+     * wellness data into a single, comprehensive input for the model.
+     */
+    private fun createPrompt(data: List<WellnessData>, profile: UserProfile?): String {
+        val weightUnit = profile?.weightUnit ?: "kg"
         val dataSummary = data.joinToString(separator = "\n") { entry ->
-            "- Date: ${entry.timestamp}, Weight: ${entry.weight}, Diet: ${entry.dietRating ?: "N/A"}, " +
+            val displayWeight = if (weightUnit == "lbs") {
+                (entry.weight * 2.20462).toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+            } else {
+                entry.weight.toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+            }
+            "- Date: ${entry.timestamp}, Weight: $displayWeight $weightUnit, Diet: ${entry.dietRating ?: "N/A"}, " +
                     "Activity: ${entry.activityLevel ?: "N/A"}, Sleep: ${entry.sleepHours ?: "N/A"}"
         }
 
+        val userContext = if (profile != null) {
+            val targetWeight = (if (weightUnit == "lbs") {
+                (profile.targetWeight * 2.20462)
+            } else {
+                profile.targetWeight
+            }).toBigDecimal().setScale(1, RoundingMode.HALF_UP)
+            "The user's age is ${profile.age} and their target weight is $targetWeight $weightUnit."
+        } else {
+            ""
+        }
+
         return """
-        Based on the following recent wellness data for a user:
+        Based on the following user information and recent wellness data:
+        $userContext
+        
+        Recent Data:
         $dataSummary
 
         Please provide 3 very short, encouraging, and actionable suggestions or motivational tips to 
@@ -81,12 +131,14 @@ class HomeViewModel(private val repository: WellnessDataRepository) : ViewModel(
         """.trimIndent()
     }
 
-    // Factory to create the ViewModel with its dependency
     class Factory(private val application: Application) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return HomeViewModel(WellnessDataRepository(application)) as T
+                return HomeViewModel(
+                    WellnessDataRepository(application),
+                    RegisterRepository(application)
+                ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

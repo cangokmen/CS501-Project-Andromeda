@@ -77,4 +77,7 @@ dependencies {
 
     // Gemini API dependency
     implementation("com.google.ai.client.generativeai:generativeai:0.7.0")
+
+    // Watch
+    implementation("com.google.android.gms:play-services-wearable:18.2.0")
 }
