@@ -21,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -41,6 +42,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.math.RoundingMode
+import java.util.TimeZone
 
 
 // Conversion constant
@@ -67,7 +69,6 @@ fun HomeScreen(
      * most recent one from each day, and then sorts them for chronological display
      * in the graph and calendar.
      */
-    // 2) Collapse multiple entries on the same date -> keep latest per day
     val dailyData = remember(allWellnessData) {
         allWellnessData
             .groupBy { it.timestamp.take(10) } // yyyy-MM-dd
@@ -202,8 +203,9 @@ fun HomeScreen(
 }
 
 /*
- * AI Suggested this: When making the line chart, 
- * collaboration with Gemini has been used. 
+ * AI Suggested this: I collaborated with an AI to develop this custom chart. The AI helped structure
+ * the drawing logic using the Canvas API, calculate coordinate scaling, and
+ * handle the dynamic placement of axis labels and grid lines.
  */
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -319,10 +321,10 @@ fun WeightLineChart(
 }
 
 /*
- * AI Suggested this: When making the calendar, 
- * collaboration with Gemini has been used. 
+ * AI Suggested this: I collaborated with an AI to create this calendar view. The AI suggested using
+ * `rememberSaveable` to preserve the displayed month across configuration changes
+ * and helped structure the logic for calculating empty cells and laying out the grid.
  */
-// Weight Calendar
 @Composable
 private fun WeightCalendar(
     weightData: List<WellnessData>,
@@ -406,7 +408,6 @@ private fun WeightCalendar(
         Spacer(Modifier.height(8.dp))
 
         // --- Calendar Grid ---
-        val totalCells = 42 // 6 weeks
         for (week in 0 until 6) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 for (day in 0 until 7) {
@@ -422,7 +423,16 @@ private fun WeightCalendar(
                             dayOfMonth
                         )
                         val weight = weightByDate[dateKey]
-                        CalendarDay(day = dayOfMonth.toString(), weight = weight)
+
+                        val isToday = today.get(Calendar.YEAR) == displayYear &&
+                                today.get(Calendar.MONTH) == displayMonth &&
+                                today.get(Calendar.DAY_OF_MONTH) == dayOfMonth
+
+                        CalendarDay(
+                            day = dayOfMonth.toString(),
+                            weight = weight,
+                            isToday = isToday
+                        )
                     }
                 }
             }
@@ -430,26 +440,39 @@ private fun WeightCalendar(
     }
 }
 
+
 @Composable
-fun RowScope.CalendarDay(day: String, weight: Double?) {
+fun RowScope.CalendarDay(
+    day: String,
+    weight: Double?,
+    isToday: Boolean
+) {
+    val dayBackgroundColor = when {
+        weight != null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        isToday -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+        else -> Color.Transparent
+    }
+    val dayTextColor = if (isToday) Color.Red else MaterialTheme.colorScheme.onSurface
+
     Box(
         modifier = Modifier
             .weight(1f)
-            .aspectRatio(1f),
+            .aspectRatio(1f)
+            .background(dayBackgroundColor, CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        if (weight != null) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                        CircleShape
-                    )
-            ) {
-                Text(day, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Text(
+                day,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isToday || weight != null) FontWeight.Bold else FontWeight.Normal,
+                color = dayTextColor
+            )
+            if (weight != null) {
                 Text(
                     text = weight.toBigDecimal().setScale(1, RoundingMode.HALF_UP).toString(),
                     style = MaterialTheme.typography.bodySmall,
@@ -457,8 +480,6 @@ fun RowScope.CalendarDay(day: String, weight: Double?) {
                     fontWeight = FontWeight.SemiBold
                 )
             }
-        } else {
-            Text(day, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
