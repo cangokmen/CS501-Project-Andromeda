@@ -211,7 +211,8 @@ fun CategorySelectionScreen(viewModel: WatchViewModel) {
         val remaining = 3 - uiState.selectedCategoryIds.size
         Text(
             text = if (remaining > 0) "Select $remaining more" else "Categories",
-            style = MaterialTheme.typography.titleMedium
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.Black
         )
         Spacer(Modifier.height(16.dp))
 
