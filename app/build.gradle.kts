@@ -80,4 +80,12 @@ dependencies {
 
     // Watch
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3") // For testing coroutines
+    testImplementation("io.mockk:mockk:1.13.8") // Powerful mocking library for Kotlin
+    testImplementation("androidx.arch.core:core-testing:2.2.0") // For testing LiveData/StateFlow with main dispatcher
+
+    // Optional: For testing Android-specific parts if needed (we'll focus on pure JVM tests first)
+    testImplementation("org.robolectric:robolectric:4.11.1")
 }
