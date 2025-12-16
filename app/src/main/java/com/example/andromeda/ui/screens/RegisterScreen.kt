@@ -94,7 +94,8 @@ fun RegisterScreen(
                 value = firstName,
                 onValueChange = { firstName = it },
                 label = { Text("First Name") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                isError = errorMessage?.contains("name", ignoreCase = true) == true
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -102,16 +103,23 @@ fun RegisterScreen(
                 value = lastName,
                 onValueChange = { lastName = it },
                 label = { Text("Last Name") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                isError = errorMessage?.contains("name", ignoreCase = true) == true
             )
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
                 value = age,
-                onValueChange = { age = it },
+                onValueChange = { newAge ->
+                    // Only allow digits to be entered
+                    if (newAge.all { it.isDigit() }) {
+                        age = newAge
+                    }
+                },
                 label = { Text("Age") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                isError = errorMessage?.contains("age", ignoreCase = true) == true
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -133,10 +141,16 @@ fun RegisterScreen(
 
             OutlinedTextField(
                 value = targetWeight,
-                onValueChange = { targetWeight = it },
+                onValueChange = { newWeight ->
+                    // Allow digits and at most one decimal point
+                    if (newWeight.count { it == '.' } <= 1 && newWeight.all { it.isDigit() || it == '.' }) {
+                        targetWeight = newWeight
+                    }
+                },
                 label = { Text("Target Weight ($selectedUnit)") }, // Dynamic label
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                isError = errorMessage?.contains("weight", ignoreCase = true) == true
             )
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -147,10 +161,21 @@ fun RegisterScreen(
                     onClick = {
                         val ageInt = age.toIntOrNull()
                         val weightDouble = targetWeight.toDoubleOrNull()
-                        if (firstName.isNotBlank() && lastName.isNotBlank() && ageInt != null && weightDouble != null) {
-                            registerViewModel.createProfile(firstName, lastName, ageInt, weightDouble, selectedUnit) // Pass unit
-                        } else {
-                            errorMessage = "Please fill all fields correctly."
+
+                        when {
+                            firstName.isBlank() || lastName.isBlank() -> {
+                                errorMessage = "First and last name cannot be empty."
+                            }
+                            ageInt == null || age.isBlank() -> {
+                                errorMessage = "Please enter a valid age."
+                            }
+                            weightDouble == null || targetWeight.isBlank() -> {
+                                errorMessage = "Please enter a valid target weight."
+                            }
+                            else -> {
+                                errorMessage = null // Clear previous errors
+                                registerViewModel.createProfile(firstName, lastName, ageInt, weightDouble, selectedUnit)
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -161,7 +186,7 @@ fun RegisterScreen(
 
             errorMessage?.let {
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(it, color = MaterialTheme.colorScheme.error)
+                Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
         }
     }
