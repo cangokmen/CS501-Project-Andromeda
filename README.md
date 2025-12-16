@@ -2,6 +2,9 @@
 
 [Project Report](https://docs.google.com/document/d/1tZ3rl0np883EFl9VOG-Cs6yTW1zFlAtuqc451Dgv1WU/edit?usp=sharing)
 
+<img width="1385" height="764" alt="Screenshot 2025-12-16 at 3 20 50 PM" src="https://github.com/user-attachments/assets/da08b796-7f31-45d2-abf3-b271c86b6fe2" />
+
+
 Andromeda is a modern Android wellness tracking application that helps users log daily health metrics, visualize trends, personalize their experience, and receive AI-powered wellness insights. The app is built with **Jetpack Compose**, follows a clean **MVVM** architecture with **Unidirectional Data Flow (UDF)**, and emphasizes **local-first, privacy-focused** data storage.
 
 This repository includes:
